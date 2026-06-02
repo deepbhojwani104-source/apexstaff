@@ -1,0 +1,775 @@
+/* ==========================================================================
+   AURASTAFF: DOM RENDERER UTILITIES
+   ========================================================================== */
+
+(function() {
+    if (!window.AuraDOM) {
+        window.AuraDOM = {};
+    }
+
+    // Shorthand query helper
+    const $ = selector => document.querySelector(selector);
+
+    // ==========================================================================
+    // 1. Dashboard View Renderer
+    // ==========================================================================
+    AuraDOM.renderDashboard = function() {
+        const state = AuraStore.getState();
+        const activeStaff = state.staff.filter(s => s.status === "Active");
+        const totalStaffCount = state.staff.length;
+        const activeStaffCount = activeStaff.length;
+
+        // 1. Update basic cards
+        $("#stat-total-staff").textContent = totalStaffCount;
+        $("#stat-subtext-staff").textContent = `${activeStaffCount} Active members`;
+
+        // Get current date string for attendance
+        const todayStr = new Date().toISOString().split('T')[0];
+        const todayAttendance = AuraStore.getAttendanceByDate(todayStr);
+
+        let present = 0;
+        let late = 0;
+        let halfDay = 0;
+        let absent = 0;
+        let leave = 0;
+
+        activeStaff.forEach(emp => {
+            if (todayAttendance[emp.id]) {
+                const status = todayAttendance[emp.id].status;
+                if (status === "Present") present++;
+                else if (status === "Late") late++;
+                else if (status === "Half Day") halfDay++;
+                else if (status === "Absent") absent++;
+                else if (status === "Paid Leave") leave++;
+            } else {
+                // If unmarked, default count as absent/unmarked for today's stats
+                absent++;
+            }
+        });
+
+        const markedCount = present + late + halfDay + absent + leave;
+        const presentRate = markedCount > 0 ? Math.round(((present + late + halfDay*0.5) / markedCount) * 100) : 0;
+
+        $("#stat-present-today").textContent = present + late;
+        $("#stat-subtext-present").textContent = `${presentRate}% attendance rate`;
+        $("#stat-absent-today").textContent = absent + leave;
+        $("#stat-subtext-absent").textContent = `${absent} absent, ${leave} on leave`;
+
+        // Calculate current month's estimated payroll payout
+        const currentYear = new Date().getFullYear();
+        const currentMonth = new Date().getMonth();
+        const monthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+        
+        let payrollEst = 0;
+        if (state.payroll[monthKey]) {
+            Object.keys(state.payroll[monthKey]).forEach(empId => {
+                payrollEst += state.payroll[monthKey][empId].netSalary;
+            });
+        } else {
+            // Fallback estimation using basic salaries
+            activeStaff.forEach(s => payrollEst += Number(s.baseSalary));
+        }
+
+        $("#stat-payroll-payout").textContent = `₹${payrollEst.toLocaleString('en-IN')}`;
+        $("#stat-subtext-payroll").textContent = `Estimated for ${new Date().toLocaleString('default', { month: 'long' })}`;
+
+        // 2. Render Attendance Progress Bar & Donuts
+        $("#attendance-percentage-text").textContent = `${presentRate}%`;
+        $("#attendance-progress-bar").style.width = `${presentRate}%`;
+
+        // Render donut circles
+        const totalChecked = markedCount || 1;
+        const pPct = Math.round((present / totalChecked) * 100);
+        const lPct = Math.round(((late + halfDay) / totalChecked) * 100);
+        const aPct = Math.round(((absent + leave) / totalChecked) * 100);
+
+        const donuts = [
+            { id: "donut-present", percent: pPct },
+            { id: "donut-late", percent: lPct },
+            { id: "donut-absent", percent: aPct }
+        ];
+
+        donuts.forEach(d => {
+            const circle = $(`#${d.id}-circle`);
+            const val = $(`#${d.id}-val`);
+            if (circle && val) {
+                circle.style.setProperty('--percent', d.percent);
+                val.textContent = `${d.percent}%`;
+            }
+        });
+
+        // 3. Render Department distribution stats
+        const departments = ["Teaching", "Administration", "Support", "Marketing"];
+        const deptColors = {
+            Teaching: "var(--color-primary)",
+            Administration: "var(--color-info)",
+            Support: "var(--color-warning)",
+            Marketing: "var(--color-danger)"
+        };
+
+        const deptContainer = $("#dept-list-container");
+        deptContainer.innerHTML = "";
+
+        departments.forEach(dept => {
+            const deptStaff = state.staff.filter(s => s.department === dept);
+            const count = deptStaff.length;
+            const pct = totalStaffCount > 0 ? Math.round((count / totalStaffCount) * 100) : 0;
+
+            const deptRow = document.createElement("div");
+            deptRow.className = "dept-progress-bar";
+            deptRow.innerHTML = `
+                <div class="dept-meta">
+                    <span class="dept-name">${dept}</span>
+                    <span class="dept-counts text-muted">${count} Staff (${pct}%)</span>
+                </div>
+                <div class="dept-bar-track">
+                    <div class="dept-bar-fill" style="width: ${pct}%; background-color: ${deptColors[dept] || 'var(--color-primary)'}"></div>
+                </div>
+            `;
+            deptContainer.appendChild(deptRow);
+        });
+
+        // 4. Render Activity Logs
+        const activityList = $("#recent-activity-list");
+        activityList.innerHTML = "";
+
+        if (state.logs.length === 0) {
+            activityList.innerHTML = `<div class="text-muted text-center py-2" style="font-size:12px;">No activity logs recorded.</div>`;
+        } else {
+            state.logs.forEach(log => {
+                let bulletClass = "";
+                if (log.type === "success") bulletClass = "success";
+                else if (log.type === "warning") bulletClass = "warning";
+                else if (log.type === "danger") bulletClass = "danger";
+
+                const logRow = document.createElement("div");
+                logRow.className = "log-item";
+                logRow.innerHTML = `
+                    <div class="log-bullet ${bulletClass}"></div>
+                    <div>
+                        <p>${log.message}</p>
+                        <span class="log-time">${log.time}</span>
+                    </div>
+                `;
+                activityList.appendChild(logRow);
+            });
+        }
+    };
+
+    // ==========================================================================
+    // 2. Staff Directory View Renderer (Grid/List mode)
+    // ==========================================================================
+    AuraDOM.renderDirectory = function(filters = { search: "", department: "", status: "", viewMode: "grid" }) {
+        const state = AuraStore.getState();
+        const gridContainer = $("#staff-directory-grid");
+        gridContainer.innerHTML = "";
+
+        // Toggle layout classes
+        if (filters.viewMode === "list") {
+            gridContainer.className = "staff-list-layout";
+        } else {
+            gridContainer.className = "staff-grid-layout";
+        }
+
+        // Apply filters
+        let filteredStaff = state.staff.filter(emp => {
+            const matchesSearch = filters.search === "" || 
+                emp.name.toLowerCase().includes(filters.search.toLowerCase()) || 
+                emp.id.toLowerCase().includes(filters.search.toLowerCase()) || 
+                emp.designation.toLowerCase().includes(filters.search.toLowerCase());
+
+            const matchesDept = filters.department === "" || emp.department === filters.department;
+            const matchesStatus = filters.status === "" || emp.status === filters.status;
+
+            return matchesSearch && matchesDept && matchesStatus;
+        });
+
+        $("#directory-count").textContent = `Staff Members (${filteredStaff.length})`;
+
+        if (filteredStaff.length === 0) {
+            gridContainer.innerHTML = `
+                <div class="glass-card no-records-card">
+                    <span class="material-symbols-outlined">person_search</span>
+                    <h4>No Staff Records Found</h4>
+                    <p>Try refining your filters or search terms, or add a new staff member.</p>
+                </div>
+            `;
+            return;
+        }
+
+        filteredStaff.forEach(emp => {
+            const initials = emp.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+            const statusClass = emp.status === "Active" ? "badge-success" : "badge-danger";
+            
+            const card = document.createElement("div");
+            card.className = "staff-card-node";
+            card.innerHTML = `
+                <span class="badge ${statusClass} node-status-badge">${emp.status}</span>
+                <div class="node-profile">
+                    <div class="profile-avatar-circle">${initials}</div>
+                </div>
+                <div class="node-info">
+                    <h4>${emp.name}</h4>
+                    <p class="node-designation">${emp.designation}</p>
+                    <span class="node-dept-pill">${emp.department}</span>
+                </div>
+                <div class="node-contact-lines">
+                    <div class="contact-row">
+                        <span class="material-symbols-outlined">call</span>
+                        <span>${emp.phone}</span>
+                    </div>
+                    <div class="contact-row">
+                        <span class="material-symbols-outlined">mail</span>
+                        <span>${emp.email}</span>
+                    </div>
+                </div>
+                <div class="node-actions">
+                    <button class="btn btn-secondary btn-sm btn-view-profile" data-id="${emp.id}">Profile</button>
+                    <button class="btn btn-outline btn-sm btn-edit-staff" data-id="${emp.id}">Edit</button>
+                </div>
+            `;
+            gridContainer.appendChild(card);
+        });
+    };
+
+    // ==========================================================================
+    // 3. Daily Attendance Sheets Renderers
+    // ==========================================================================
+    AuraDOM.renderAttendanceTable = function(dateStr) {
+        const state = AuraStore.getState();
+        const activeStaff = state.staff.filter(s => s.status === "Active");
+        const tbody = $("#attendance-table-body");
+        tbody.innerHTML = "";
+
+        const savedAttendance = AuraStore.getAttendanceByDate(dateStr);
+
+        let present = 0;
+        let late = 0;
+        let halfDay = 0;
+        let absent = 0;
+        let leave = 0;
+
+        if (activeStaff.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center py-4 text-muted">
+                        No active staff members registered in system.
+                    </td>
+                </tr>
+            `;
+            $("#day-summary-pills").innerHTML = "";
+            return;
+        }
+
+        activeStaff.forEach(emp => {
+            const record = savedAttendance[emp.id] || { status: "Absent", checkIn: "", remarks: "" };
+            
+            // Keep status stats
+            if (record.status === "Present") present++;
+            else if (record.status === "Late") late++;
+            else if (record.status === "Half Day") halfDay++;
+            else if (record.status === "Absent") absent++;
+            else if (record.status === "Paid Leave") leave++;
+
+            const initials = emp.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+
+            const tr = document.createElement("tr");
+            tr.dataset.staffId = emp.id;
+            tr.innerHTML = `
+                <td>
+                    <div class="table-profile-cell">
+                        <div class="table-profile-avatar">${initials}</div>
+                        <div class="table-profile-details">
+                            <span class="table-profile-name">${emp.name}</span>
+                            <span class="table-profile-id">${emp.id} | ${emp.designation}</span>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="node-dept-pill">${emp.department}</span>
+                </td>
+                <td>
+                    <div class="attendance-toggle-row">
+                        <label class="attendance-toggle-option opt-present">
+                            <input type="radio" name="status-${emp.id}" value="Present" ${record.status === 'Present' ? 'checked' : ''}>
+                            <span class="toggle-label-box">Present</span>
+                        </label>
+                        <label class="attendance-toggle-option opt-late">
+                            <input type="radio" name="status-${emp.id}" value="Late" ${record.status === 'Late' ? 'checked' : ''}>
+                            <span class="toggle-label-box">Late</span>
+                        </label>
+                        <label class="attendance-toggle-option opt-late">
+                            <input type="radio" name="status-${emp.id}" value="Half Day" ${record.status === 'Half Day' ? 'checked' : ''}>
+                            <span class="toggle-label-box">Half Day</span>
+                        </label>
+                        <label class="attendance-toggle-option opt-absent">
+                            <input type="radio" name="status-${emp.id}" value="Absent" ${record.status === 'Absent' ? 'checked' : ''}>
+                            <span class="toggle-label-box">Absent</span>
+                        </label>
+                        <label class="attendance-toggle-option opt-leave">
+                            <input type="radio" name="status-${emp.id}" value="Paid Leave" ${record.status === 'Paid Leave' ? 'checked' : ''}>
+                            <span class="toggle-label-box">Leave</span>
+                        </label>
+                    </div>
+                </td>
+                <td>
+                    <input type="time" class="table-input-time" value="${record.checkIn || ''}" placeholder="--:--">
+                </td>
+                <td>
+                    <input type="text" class="table-input-comment" value="${record.remarks || ''}" placeholder="Notes/Remarks">
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Set summary counters
+        $("#day-summary-pills").innerHTML = `
+            <div class="summary-pill p-pres">
+                <span class="material-symbols-outlined">check_circle</span>
+                <span>${present} Present</span>
+            </div>
+            <div class="summary-pill p-half">
+                <span class="material-symbols-outlined">schedule</span>
+                <span>${late + halfDay} Late / Half Day</span>
+            </div>
+            <div class="summary-pill p-abse">
+                <span class="material-symbols-outlined">cancel</span>
+                <span>${absent} Absent</span>
+            </div>
+            <div class="summary-pill">
+                <span class="material-symbols-outlined">event_busy</span>
+                <span>${leave} Leave</span>
+            </div>
+        `;
+    };
+
+    // ==========================================================================
+    // 4. Payroll Ledger Renderers
+    // ==========================================================================
+    AuraDOM.renderPayrollTable = function(year, month) {
+        const state = AuraStore.getState();
+        const activeStaff = state.staff.filter(s => s.status === "Active");
+        const tbody = $("#payroll-table-body");
+        tbody.innerHTML = "";
+
+        const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+        const payrollData = state.payroll[monthKey] || {};
+
+        let totalNet = 0;
+        let totalDeduct = 0;
+        let processedCount = 0;
+
+        if (activeStaff.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-muted">
+                        No active staff members to process.
+                    </td>
+                </tr>
+            `;
+            $("#payroll-total-net").textContent = "₹0.00";
+            $("#payroll-total-deductions").textContent = "₹0.00";
+            $("#payroll-processed-count").textContent = "0/0";
+            return;
+        }
+
+        activeStaff.forEach(emp => {
+            const record = payrollData[emp.id];
+            
+            // If calculations haven't run or this record is undefined
+            if (!record) {
+                const initials = emp.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>
+                        <div class="table-profile-cell">
+                            <div class="table-profile-avatar">${initials}</div>
+                            <div class="table-profile-details">
+                                <span class="table-profile-name">${emp.name}</span>
+                                <span class="table-profile-id">${emp.id}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td colspan="6" class="text-muted">Payroll pending calculation. Press Refresh button above.</td>
+                    <td class="text-center">-</td>
+                `;
+                tbody.appendChild(tr);
+                return;
+            }
+
+            if (record.status === "Paid") processedCount++;
+            totalNet += record.netSalary;
+            totalDeduct += (record.absentDeductions + record.deductions);
+
+            const initials = emp.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+            const statusClass = record.status === "Paid" ? "badge-success" : "badge-warning";
+            const attendStats = record.leavesCount;
+
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>
+                    <div class="table-profile-cell">
+                        <div class="table-profile-avatar">${initials}</div>
+                        <div class="table-profile-details">
+                            <span class="table-profile-name">${emp.name}</span>
+                            <span class="table-profile-id">${emp.id} | ${emp.designation}</span>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="badge badge-info" title="Present/Late/Half-day/Absent/Paid-Leave">
+                        ${attendStats.present}P / ${attendStats.late}L / ${attendStats.halfDay}H / ${attendStats.absent}A / ${attendStats.leave}LV
+                    </span>
+                </td>
+                <td>₹${record.baseSalary.toLocaleString('en-IN')}</td>
+                <td>₹${record.allowances.toLocaleString('en-IN')}</td>
+                <td>
+                    <span class="${record.absentDeductions > 0 ? 'text-rose' : ''}">
+                        ₹${(record.absentDeductions + record.deductions).toLocaleString('en-IN')}
+                    </span>
+                </td>
+                <td><strong>₹${record.netSalary.toLocaleString('en-IN')}</strong></td>
+                <td><span class="badge ${statusClass}">${record.status}</span></td>
+                <td>
+                    <div class="table-action-btn-row">
+                        <button class="btn btn-outline btn-adjust-payroll" data-id="${emp.id}" title="Adjust Allowances/Deductions">
+                            <span class="material-symbols-outlined">edit_document</span>
+                        </button>
+                        <button class="btn btn-secondary btn-payslip-preview" data-id="${emp.id}" title="View & Print Payslip">
+                            <span class="material-symbols-outlined">receipt_long</span>
+                        </button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Set Summary Indicators
+        $("#payroll-total-net").textContent = `₹${totalNet.toLocaleString('en-IN')}`;
+        $("#payroll-total-deductions").textContent = `₹${totalDeduct.toLocaleString('en-IN')}`;
+        $("#payroll-processed-count").textContent = `${processedCount}/${activeStaff.length}`;
+    };
+
+    // ==========================================================================
+    // 5. Staff Detailed Profile Modal Renderer
+    // ==========================================================================
+    AuraDOM.renderStaffDetailModal = function(staffId) {
+        const emp = AuraStore.getStaffById(staffId);
+        if (!emp) return;
+
+        const initials = emp.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
+        const statusClass = emp.status === "Active" ? "badge-success" : "badge-danger";
+
+        // Gather all computed historical statistics
+        const state = AuraStore.getState();
+        let totalLeavesYear = 0;
+        let totalAbsentsYear = 0;
+        
+        // Sum leaves for 2026/Current Year
+        Object.keys(state.attendance).forEach(date => {
+            const records = state.attendance[date];
+            if (records[staffId]) {
+                const stat = records[staffId].status;
+                if (stat === "Absent") totalAbsentsYear++;
+                else if (stat === "Paid Leave") totalLeavesYear++;
+            }
+        });
+
+        const detailContainer = $("#staff-detail-content");
+        detailContainer.innerHTML = `
+            <div class="detail-header-block">
+                <div class="detail-avatar-circle">${initials}</div>
+                <div class="detail-title-info">
+                    <h3>${emp.name}</h3>
+                    <p>${emp.designation}</p>
+                    <span class="badge ${statusClass}">${emp.status}</span>
+                </div>
+            </div>
+
+            <div class="detail-sections-grid">
+                <!-- Personal Info Card -->
+                <div class="detail-section">
+                    <h4>Personal & Contact Details</h4>
+                    <div class="detail-info-row">
+                        <strong>Gender</strong>
+                        <span>${emp.gender || 'Not specified'}</span>
+                    </div>
+                    <div class="detail-info-row">
+                        <strong>Email</strong>
+                        <span>${emp.email}</span>
+                    </div>
+                    <div class="detail-info-row">
+                        <strong>Phone</strong>
+                        <span>${emp.phone}</span>
+                    </div>
+                    <div class="detail-info-row">
+                        <strong>Joining Date</strong>
+                        <span>${new Date(emp.joiningDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                    </div>
+                </div>
+
+                <!-- Banking & Payout Card -->
+                <div class="detail-section">
+                    <h4>Salary & Banking Records</h4>
+                    <div class="detail-info-row">
+                        <strong>Monthly Base</strong>
+                        <span>₹${Number(emp.baseSalary).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div class="detail-info-row">
+                        <strong>Salary Type</strong>
+                        <span>${emp.salaryType || 'Standard'}</span>
+                    </div>
+                    <div class="detail-info-row">
+                        <strong>Bank</strong>
+                        <span>${emp.bankName || '-'}</span>
+                    </div>
+                    <div class="detail-info-row">
+                        <strong>Acc No.</strong>
+                        <span>${emp.bankAccount || '-'}</span>
+                    </div>
+                    <div class="detail-info-row">
+                        <strong>IFSC Code</strong>
+                        <span>${emp.bankIfsc || '-'}</span>
+                    </div>
+                </div>
+
+                <!-- Year to Date Metrics -->
+                <div class="detail-section">
+                    <h4>Annual Metrics Summary (YTD)</h4>
+                    <div class="detail-info-row">
+                        <strong>Total Unexcused Absents</strong>
+                        <span class="text-rose">${totalAbsentsYear} Days</span>
+                    </div>
+                    <div class="detail-info-row">
+                        <strong>Approved Leaves Taken</strong>
+                        <span class="text-info">${totalLeavesYear} Days</span>
+                    </div>
+                </div>
+
+                <!-- Past Payroll Register Log -->
+                <div class="detail-section">
+                    <h4>Payroll History Log</h4>
+                    <div class="history-timeline-scroll" id="detail-payroll-history">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Render Payroll history items inside detail modal
+        const historyContainer = $("#detail-payroll-history");
+        historyContainer.innerHTML = "";
+        
+        let historyFound = false;
+        Object.keys(state.payroll).sort().reverse().forEach(monthKey => {
+            const monthRecord = state.payroll[monthKey][staffId];
+            if (monthRecord) {
+                historyFound = true;
+                const dateObj = new Date(monthKey + "-01");
+                const dateDisplay = dateObj.toLocaleDateString('default', { month: 'long', year: 'numeric' });
+                
+                const item = document.createElement("div");
+                item.className = "history-item";
+                item.innerHTML = `
+                    <div class="history-item-left">
+                        <span class="history-item-date">${dateDisplay}</span>
+                        <span class="history-item-desc">${monthRecord.status} | Deduction: ₹${(monthRecord.absentDeductions + monthRecord.deductions).toLocaleString('en-IN')}</span>
+                    </div>
+                    <span class="history-item-amount">₹${monthRecord.netSalary.toLocaleString('en-IN')}</span>
+                `;
+                historyContainer.appendChild(item);
+            }
+        });
+
+        if (!historyFound) {
+            historyContainer.innerHTML = `<div class="text-muted text-center pt-4" style="font-size:12px;">No historical payslip processed for this employee yet.</div>`;
+        }
+    };
+
+    // ==========================================================================
+    // 6. Payslip PDF/Print Preview Generator
+    // ==========================================================================
+    AuraDOM.renderPayslipModal = function(staffId, year, month) {
+        const emp = AuraStore.getStaffById(staffId);
+        const branding = AuraStore.getBranding();
+        const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+        const payrollData = AuraStore.getState().payroll[monthKey] || {};
+        const payRecord = payrollData[staffId];
+
+        if (!emp || !payRecord) return;
+
+        const payDate = new Date(year, month, 1);
+        const periodStr = payDate.toLocaleDateString('default', { month: 'long', year: 'numeric' });
+        const slipNo = `SLIP-${year}${String(month+1).padStart(2, '0')}-${staffId.split('-')[1]}`;
+
+        // Number to Words conversion for Net Salary in Indian Currency format
+        function numberToWords(num) {
+            const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
+            const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+            if ((num = num.toString()).length > 9) return 'overflow';
+            let n = ('000000000' + num).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
+            if (!n) return '';
+            let str = '';
+            str += (Number(n[1]) != 0) ? (a[Number(n[1])] || b[n[1][0]] + ' ' + a[n[1][1]]) + 'Crore ' : '';
+            str += (Number(n[2]) != 0) ? (a[Number(n[2])] || b[n[2][0]] + ' ' + a[n[2][1]]) + 'Lakh ' : '';
+            str += (Number(n[3]) != 0) ? (a[Number(n[3])] || b[n[3][0]] + ' ' + a[n[3][1]]) + 'Thousand ' : '';
+            str += (Number(n[4]) != 0) ? (a[Number(n[4])] || b[n[4][0]] + ' ' + a[n[4][1]]) + 'Hundred ' : '';
+            str += (Number(n[5]) != 0) ? ((str != '') ? 'and ' : '') + (a[Number(n[5])] || b[n[5][0]] + ' ' + a[n[5][1]]) : '';
+            return str ? str + 'Rupees Only' : 'Zero Rupees';
+        }
+
+        const netInWords = numberToWords(payRecord.netSalary);
+        const totalEarnings = payRecord.baseSalary + payRecord.allowances;
+        const totalDeductions = payRecord.absentDeductions + payRecord.deductions;
+
+        const payslipContainer = $("#payslip-container");
+        payslipContainer.innerHTML = `
+            <div class="payslip-box">
+                <!-- Slip Branding Header -->
+                <div class="payslip-header-table">
+                    <div class="payslip-brand">
+                        <h2>${branding.name}</h2>
+                        <p>${branding.tagline || ''}</p>
+                        <p>${branding.address}</p>
+                        <p>Email: ${branding.email} | Tel: ${branding.phone}</p>
+                    </div>
+                    <div class="payslip-title-block">
+                        <h3>Salary Slip</h3>
+                        <p>Pay Period: ${periodStr}</p>
+                    </div>
+                </div>
+
+                <!-- Employee Metadata Grid -->
+                <div class="payslip-meta-grid">
+                    <div class="payslip-meta-col">
+                        <div class="payslip-meta-row">
+                            <strong>Staff ID:</strong>
+                            <span>${emp.id}</span>
+                        </div>
+                        <div class="payslip-meta-row">
+                            <strong>Staff Name:</strong>
+                            <span>${emp.name}</span>
+                        </div>
+                        <div class="payslip-meta-row">
+                            <strong>Designation:</strong>
+                            <span>${emp.designation}</span>
+                        </div>
+                        <div class="payslip-meta-row">
+                            <strong>Department:</strong>
+                            <span>${emp.department}</span>
+                        </div>
+                    </div>
+                    <div class="payslip-meta-col">
+                        <div class="payslip-meta-row">
+                            <strong>Salary Slip No:</strong>
+                            <span>${slipNo}</span>
+                        </div>
+                        <div class="payslip-meta-row">
+                            <strong>Bank Name:</strong>
+                            <span>${emp.bankName || 'Not Set'}</span>
+                        </div>
+                        <div class="payslip-meta-row">
+                            <strong>Bank Account No:</strong>
+                            <span>${emp.bankAccount || 'Not Set'}</span>
+                        </div>
+                        <div class="payslip-meta-row">
+                            <strong>IFSC Code:</strong>
+                            <span>${emp.bankIfsc || 'Not Set'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Breakdowns Table -->
+                <table class="payslip-earnings-table">
+                    <thead>
+                        <tr>
+                            <th>Earnings / Allowances</th>
+                            <th>Amount (₹)</th>
+                            <th>Deductions Breakdown</th>
+                            <th>Amount (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Basic Pay</td>
+                            <td>₹${payRecord.baseSalary.toLocaleString('en-IN')}</td>
+                            <td>Unpaid Absents Penalty (${payRecord.leavesCount.absent} Days)</td>
+                            <td>₹${payRecord.absentDeductions.toLocaleString('en-IN')}</td>
+                        </tr>
+                        <tr>
+                            <td>Special Allowances / Bonuses</td>
+                            <td>₹${payRecord.allowances.toLocaleString('en-IN')}</td>
+                            <td>Additional Deductions</td>
+                            <td>₹${payRecord.deductions.toLocaleString('en-IN')}</td>
+                        </tr>
+                        <tr class="bg-light-grey">
+                            <td><strong>Total Earnings (A)</strong></td>
+                            <td>₹${totalEarnings.toLocaleString('en-IN')}</td>
+                            <td><strong>Total Deductions (B)</strong></td>
+                            <td>₹${totalDeductions.toLocaleString('en-IN')}</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Grand Totals Box -->
+                <div class="payslip-totals-box">
+                    <div class="totals-net-label">
+                        <strong>Net Payout: ₹${payRecord.netSalary.toLocaleString('en-IN')}</strong>
+                        <span>(${netInWords})</span>
+                    </div>
+                    <div class="totals-net-val">
+                        ₹${payRecord.netSalary.toLocaleString('en-IN')}
+                    </div>
+                </div>
+
+                <p style="font-size: 11px; color:#64748b; margin-top:-10px;">* Remarks: ${payRecord.remarks || 'Standard Monthly Payout'}</p>
+
+                <!-- Signature Section -->
+                <div class="payslip-signatures">
+                    <div class="sig-line">
+                        Employee Signature
+                    </div>
+                    <div class="sig-line">
+                        Authorized Director Signatory
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
+    // ==========================================================================
+    // 7. Toast Alerts Builder
+    // ==========================================================================
+    let toastTimeout;
+    AuraDOM.showToast = function(message, type = "success") {
+        const toast = $("#toast");
+        const icon = $("#toast .toast-icon");
+        const text = $("#toast .toast-text");
+
+        if (!toast) return;
+
+        // Reset classes
+        toast.className = "toast-notification";
+        toast.classList.add(type);
+
+        // Adjust icon
+        if (type === "success") {
+            icon.textContent = "check_circle";
+        } else if (type === "error") {
+            icon.textContent = "error";
+        } else {
+            icon.textContent = "info";
+        }
+
+        text.textContent = message;
+        toast.classList.remove("hide");
+
+        // Auto hide after 3.5s
+        clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+            toast.classList.add("hide");
+        }, 3500);
+    };
+
+})();

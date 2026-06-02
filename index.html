@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AuraStaff - Coaching Center Staff Hub</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Google Material Symbols (Outlined) -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <!-- PWA Setup -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0d0e12">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+<body>
+
+    <!-- 1. LOGIN GATEWAY -->
+    <div id="login-container" class="login-wrapper">
+        <div class="login-glass-card">
+            <div class="login-header">
+                <div class="logo-box">
+                    <span class="material-symbols-outlined logo-icon">school</span>
+                    <h2>Aura<span>Staff</span></h2>
+                </div>
+                <p class="subtitle">Coaching Staff Management Portal</p>
+            </div>
+            
+            <form id="login-form" class="login-form">
+                <div class="input-group">
+                    <label for="username">Username</label>
+                    <div class="input-field">
+                        <span class="material-symbols-outlined input-icon">person</span>
+                        <input type="text" id="username" placeholder="Enter username" required value="admin">
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="password">Password</label>
+                    <div class="input-field">
+                        <span class="material-symbols-outlined input-icon">lock</span>
+                        <input type="password" id="password" placeholder="Enter password" required value="admin123">
+                        <span class="material-symbols-outlined toggle-password" id="btn-toggle-password">visibility_off</span>
+                    </div>
+                </div>
+                
+                <div id="login-error" class="error-toast hide">
+                    <span class="material-symbols-outlined">error</span>
+                    <span class="error-msg">Invalid username or password!</span>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block">
+                    <span>Sign In</span>
+                    <span class="material-symbols-outlined">arrow_forward</span>
+                </button>
+            </form>
+            
+            <div class="demo-credentials">
+                <span class="badge badge-info">Demo Mode Active</span>
+                <p>Use pre-filled credentials: <strong>admin</strong> / <strong>admin123</strong></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. CORE DASHBOARD WRAPPER -->
+    <div id="app-container" class="app-layout hide">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <span class="material-symbols-outlined logo-icon">school</span>
+                <h2>Aura<span>Staff</span></h2>
+            </div>
+            
+            <nav class="sidebar-menu">
+                <a href="#dashboard" class="menu-item active" data-view="dashboard">
+                    <span class="material-symbols-outlined">dashboard</span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#directory" class="menu-item" data-view="directory">
+                    <span class="material-symbols-outlined">group</span>
+                    <span>Staff Directory</span>
+                </a>
+                <a href="#attendance" class="menu-item" data-view="attendance">
+                    <span class="material-symbols-outlined">calendar_today</span>
+                    <span>Attendance Log</span>
+                </a>
+                <a href="#payroll" class="menu-item" data-view="payroll">
+                    <span class="material-symbols-outlined">payments</span>
+                    <span>Payroll Hub</span>
+                </a>
+                <a href="#settings" class="menu-item" data-view="settings">
+                    <span class="material-symbols-outlined">settings</span>
+                    <span>System Settings</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <button id="theme-toggle-btn" class="theme-btn">
+                    <span class="material-symbols-outlined dark-icon">dark_mode</span>
+                    <span class="material-symbols-outlined light-icon">light_mode</span>
+                    <span class="theme-text">Toggle Theme</span>
+                </button>
+                <div class="user-pill">
+                    <div class="user-avatar" id="current-user-avatar">AD</div>
+                    <div class="user-info">
+                        <span class="user-name">Administrator</span>
+                        <span class="user-role">Super Admin</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Panel -->
+        <main class="main-panel">
+            <!-- Header Bar -->
+            <header class="top-header">
+                <div class="header-left">
+                    <h1 id="page-title">Dashboard Overview</h1>
+                    <p class="current-date-text" id="header-date">Tuesday, June 2, 2026</p>
+                </div>
+                <div class="header-right">
+                    <div id="sync-status-indicator" class="sync-status-badge hide" title="Google Sheets Auto-Sync Status">
+                        <span class="material-symbols-outlined status-icon" style="font-size:16px;">cloud_done</span>
+                        <span class="status-text">Cloud Synced</span>
+                    </div>
+                    <button id="btn-quick-attendance" class="btn btn-secondary btn-icon-text">
+                        <span class="material-symbols-outlined">check_circle</span>
+                        <span>Mark Today</span>
+                    </button>
+                    <button id="btn-quick-add" class="btn btn-primary btn-icon-text">
+                        <span class="material-symbols-outlined">person_add</span>
+                        <span>Add Staff</span>
+                    </button>
+                    <button id="btn-logout" class="btn btn-outline btn-logout-icon" title="Logout">
+                        <span class="material-symbols-outlined">logout</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Scrollable View Area -->
+            <div class="view-content">
+                
+                <!-- View 1: Dashboard -->
+                <section id="view-dashboard" class="page-view">
+                    <!-- Stats Grid -->
+                    <div class="stats-grid">
+                        <div class="stat-card stat-primary">
+                            <div class="stat-icon">
+                                <span class="material-symbols-outlined">group</span>
+                            </div>
+                            <div class="stat-details">
+                                <span class="stat-label">Total Staff</span>
+                                <h3 id="stat-total-staff">0</h3>
+                                <span class="stat-subtext" id="stat-subtext-staff">0 Active members</span>
+                            </div>
+                        </div>
+                        <div class="stat-card stat-success">
+                            <div class="stat-icon">
+                                <span class="material-symbols-outlined">person_check</span>
+                            </div>
+                            <div class="stat-details">
+                                <span class="stat-label">Present Today</span>
+                                <h3 id="stat-present-today">0</h3>
+                                <span class="stat-subtext" id="stat-subtext-present">0% attendance rate</span>
+                            </div>
+                        </div>
+                        <div class="stat-card stat-warning">
+                            <div class="stat-icon">
+                                <span class="material-symbols-outlined">pending_actions</span>
+                            </div>
+                            <div class="stat-details">
+                                <span class="stat-label">Leaves / Absents Today</span>
+                                <h3 id="stat-absent-today">0</h3>
+                                <span class="stat-subtext" id="stat-subtext-absent">0 members off</span>
+                            </div>
+                        </div>
+                        <div class="stat-card stat-info">
+                            <div class="stat-icon">
+                                <span class="material-symbols-outlined">payments</span>
+                            </div>
+                            <div class="stat-details">
+                                <span class="stat-label">Monthly Payroll Est.</span>
+                                <h3 id="stat-payroll-payout">₹0.00</h3>
+                                <span class="stat-subtext" id="stat-subtext-payroll">For current month</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dashboard Layout Columns -->
+                    <div class="dashboard-columns">
+                        <!-- Column Left: Charts & Graphs -->
+                        <div class="dashboard-col col-main">
+                            <div class="glass-card chart-container-card">
+                                <div class="card-header">
+                                    <h3>Staff Attendance Summary</h3>
+                                    <div class="card-header-actions">
+                                        <span class="badge badge-success">Live Tracking</span>
+                                    </div>
+                                </div>
+                                <div class="attendance-trend-preview">
+                                    <!-- A sleek custom CSS grid-based chart component -->
+                                    <div class="visual-progress-row">
+                                        <div class="progress-info">
+                                            <span>Active Operations & Duty Rate</span>
+                                            <span id="attendance-percentage-text">0%</span>
+                                        </div>
+                                        <div class="progress-track">
+                                            <div id="attendance-progress-bar" class="progress-fill" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="attendance-donuts-grid">
+                                        <div class="donut-card">
+                                            <div class="donut-circle p-present" id="donut-present-circle" style="--percent: 0;">
+                                                <div class="donut-inner" id="donut-present-val">0%</div>
+                                            </div>
+                                            <span class="donut-label">Present</span>
+                                        </div>
+                                        <div class="donut-card">
+                                            <div class="donut-circle p-late" id="donut-late-circle" style="--percent: 0;">
+                                                <div class="donut-inner" id="donut-late-val">0%</div>
+                                            </div>
+                                            <span class="donut-label">Late/Half Day</span>
+                                        </div>
+                                        <div class="donut-card">
+                                            <div class="donut-circle p-absent" id="donut-absent-circle" style="--percent: 0;">
+                                                <div class="donut-inner" id="donut-absent-val">0%</div>
+                                            </div>
+                                            <span class="donut-label">Absent/Leave</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="glass-card">
+                                <div class="card-header">
+                                    <h3>Staff by Department</h3>
+                                </div>
+                                <div class="dept-distribution-list" id="dept-list-container">
+                                    <!-- Dynamic contents loaded via JS -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Column Right: Shortcuts & Logs -->
+                        <div class="dashboard-col col-side">
+                            <div class="glass-card quick-actions-card">
+                                <div class="card-header">
+                                    <h3>Quick Commands</h3>
+                                </div>
+                                <div class="quick-commands-grid">
+                                    <button class="command-tile" id="tile-add-staff">
+                                        <span class="material-symbols-outlined text-primary">person_add</span>
+                                        <span>Add Member</span>
+                                    </button>
+                                    <button class="command-tile" id="tile-mark-attendance">
+                                        <span class="material-symbols-outlined text-success">assignment_turned_in</span>
+                                        <span>Attendance</span>
+                                    </button>
+                                    <button class="command-tile" id="tile-payroll">
+                                        <span class="material-symbols-outlined text-info">account_balance_wallet</span>
+                                        <span>Process Pay</span>
+                                    </button>
+                                    <button class="command-tile" id="tile-settings">
+                                        <span class="material-symbols-outlined text-warning">database</span>
+                                        <span>Backup Hub</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="glass-card log-card">
+                                <div class="card-header">
+                                    <h3>Recent System Logs</h3>
+                                    <button class="btn-text" id="btn-clear-logs">Clear</button>
+                                </div>
+                                <div class="activity-timeline" id="recent-activity-list">
+                                    <!-- Dynamic logs go here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- View 2: Staff Directory -->
+                <section id="view-directory" class="page-view hide">
+                    <!-- Filters & Search Toolbar -->
+                    <div class="toolbar-card glass-card">
+                        <div class="toolbar-search">
+                            <span class="material-symbols-outlined">search</span>
+                            <input type="text" id="search-staff" placeholder="Search by name, email, or Staff ID...">
+                        </div>
+                        <div class="toolbar-filters">
+                            <div class="filter-select">
+                                <span class="material-symbols-outlined filter-icon">category</span>
+                                <select id="filter-dept">
+                                    <option value="">All Departments</option>
+                                    <option value="Teaching">Teaching</option>
+                                    <option value="Administration">Administration</option>
+                                    <option value="Support">Support</option>
+                                    <option value="Marketing">Marketing</option>
+                                </select>
+                            </div>
+                            <div class="filter-select">
+                                <span class="material-symbols-outlined filter-icon">toggle_on</span>
+                                <select id="filter-status">
+                                    <option value="">All Statuses</option>
+                                    <option value="Active">Active</option>
+                                    <option value="Inactive">Inactive</option>
+                                </select>
+                            </div>
+                            <button id="btn-clear-filters" class="btn btn-outline icon-only" title="Clear Filters">
+                                <span class="material-symbols-outlined">filter_alt_off</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Directory Display Panel -->
+                    <div class="directory-container">
+                        <div class="directory-list-header">
+                            <h3 id="directory-count">Staff Members (0)</h3>
+                            <div class="view-toggles">
+                                <button id="btn-view-grid" class="btn btn-outline icon-only active" title="Grid View">
+                                    <span class="material-symbols-outlined">grid_view</span>
+                                </button>
+                                <button id="btn-view-list" class="btn btn-outline icon-only" title="List View">
+                                    <span class="material-symbols-outlined">view_list</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Staff Grid/List Container -->
+                        <div id="staff-directory-grid" class="staff-grid-layout">
+                            <!-- Dynamic profiles injected via JS -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- View 3: Attendance Log -->
+                <section id="view-attendance" class="page-view hide">
+                    <div class="attendance-control-bar glass-card">
+                        <div class="date-selector-wrapper">
+                            <button id="btn-prev-day" class="btn btn-outline icon-only">
+                                <span class="material-symbols-outlined">chevron_left</span>
+                            </button>
+                            <div class="date-picker-custom">
+                                <span class="material-symbols-outlined">calendar_month</span>
+                                <input type="date" id="attendance-date-picker">
+                            </div>
+                            <button id="btn-next-day" class="btn btn-outline icon-only">
+                                <span class="material-symbols-outlined">chevron_right</span>
+                            </button>
+                            <button id="btn-jump-today" class="btn btn-secondary btn-sm">Today</button>
+                        </div>
+                        <div class="attendance-actions">
+                            <span class="last-saved-time" id="attendance-status-label">Mark attendance for today</span>
+                            <button id="btn-mark-all-present" class="btn btn-outline btn-success-text">
+                                <span class="material-symbols-outlined">done_all</span>
+                                <span>Mark All Present</span>
+                            </button>
+                            <button id="btn-save-attendance" class="btn btn-primary">
+                                <span class="material-symbols-outlined">save</span>
+                                <span>Save Changes</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Summary Stats for Selected Day -->
+                    <div class="attendance-summary-pills" id="day-summary-pills">
+                        <!-- Dynamic counters like: 12 Present, 2 Absent, 0 Late -->
+                    </div>
+
+                    <!-- Attendance Table -->
+                    <div class="glass-card table-responsive-container">
+                        <table class="data-table" id="attendance-table">
+                            <thead>
+                                <tr>
+                                    <th>Staff Detail</th>
+                                    <th>Department</th>
+                                    <th>Attendance Status</th>
+                                    <th>Check-In Time</th>
+                                    <th>Remarks / Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendance-table-body">
+                                <!-- Dynamic rows injected by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- View 4: Payroll Hub -->
+                <section id="view-payroll" class="page-view hide">
+                    <div class="payroll-selector-card glass-card">
+                        <div class="payroll-period">
+                            <div class="filter-select">
+                                <span class="material-symbols-outlined">calendar_today</span>
+                                <select id="payroll-month">
+                                    <option value="0">January</option>
+                                    <option value="1">February</option>
+                                    <option value="2">March</option>
+                                    <option value="3">April</option>
+                                    <option value="4">May</option>
+                                    <option value="5">June</option>
+                                    <option value="6">July</option>
+                                    <option value="7">August</option>
+                                    <option value="8">September</option>
+                                    <option value="9">October</option>
+                                    <option value="10">November</option>
+                                    <option value="11">December</option>
+                                </select>
+                            </div>
+                            <div class="filter-select">
+                                <span class="material-symbols-outlined">timeline</span>
+                                <select id="payroll-year">
+                                    <option value="2026">2026</option>
+                                    <option value="2027">2027</option>
+                                </select>
+                            </div>
+                            <button id="btn-calculate-payroll" class="btn btn-primary">
+                                <span class="material-symbols-outlined">calculate</span>
+                                <span>Calculate / Refresh Payroll</span>
+                            </button>
+                        </div>
+
+                        <div class="payroll-summary-stats">
+                            <div class="p-stat-box">
+                                <span class="p-stat-label">Total Net Salary</span>
+                                <h4 id="payroll-total-net">₹0.00</h4>
+                            </div>
+                            <div class="p-stat-box">
+                                <span class="p-stat-label">Deductions Applied</span>
+                                <h4 id="payroll-total-deductions" class="text-rose">₹0.00</h4>
+                            </div>
+                            <div class="p-stat-box">
+                                <span class="p-stat-label">Processed Slips</span>
+                                <h4 id="payroll-processed-count">0/0</h4>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Process Payroll Button Panel -->
+                    <div class="payroll-bulk-actions">
+                        <h3>Payroll Roll Sheet</h3>
+                        <button id="btn-bulk-approve-payroll" class="btn btn-success-text btn-outline">
+                            <span class="material-symbols-outlined">verified_user</span>
+                            <span>Approve & Finalize All</span>
+                        </button>
+                    </div>
+
+                    <!-- Payroll Table -->
+                    <div class="glass-card table-responsive-container">
+                        <table class="data-table" id="payroll-table">
+                            <thead>
+                                <tr>
+                                    <th>Staff Profile</th>
+                                    <th>Attendance Summary</th>
+                                    <th>Base Salary</th>
+                                    <th>Allowances / Bonus</th>
+                                    <th>Leaves Deduct</th>
+                                    <th>Net Payout</th>
+                                    <th>Status</th>
+                                    <th class="text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payroll-table-body">
+                                <!-- Dynamic items injected via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- View 5: System Settings & Backup -->
+                <section id="view-settings" class="page-view hide">
+                    <div class="settings-grid">
+                        
+                        <!-- Backup Card -->
+                        <div class="glass-card settings-card">
+                            <div class="settings-card-header">
+                                <span class="material-symbols-outlined icon-box-settings">backup</span>
+                                <div>
+                                    <h3>Backup & Data Management</h3>
+                                    <p>Export your coaching center databases or load backups.</p>
+                                </div>
+                            </div>
+                            <div class="settings-card-body">
+                                <div class="settings-action-row">
+                                    <div class="action-details">
+                                        <strong>Export Local Data</strong>
+                                        <p>Save all staff profiles, attendance logs, and payroll records to a JSON file.</p>
+                                    </div>
+                                    <button id="btn-export-data" class="btn btn-outline btn-icon-text">
+                                        <span class="material-symbols-outlined">download</span>
+                                        <span>Export Database</span>
+                                    </button>
+                                </div>
+                                <div class="settings-action-row">
+                                    <div class="action-details">
+                                        <strong>Import Data Backup</strong>
+                                        <p>Upload an AuraStaff backup JSON file. This will overwrite the current database.</p>
+                                    </div>
+                                    <div class="upload-btn-wrapper">
+                                        <button class="btn btn-outline btn-icon-text">
+                                            <span class="material-symbols-outlined">upload</span>
+                                            <span>Upload File</span>
+                                        </button>
+                                        <input type="file" id="import-data-file" accept=".json">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Google Sheets Sync Integration -->
+                        <div class="glass-card settings-card">
+                            <div class="settings-card-header">
+                                <span class="material-symbols-outlined icon-box-settings">table_chart</span>
+                                <div>
+                                    <h3>Google Sheets Sync</h3>
+                                    <p>Push staff database and attendance logs to Google Sheets.</p>
+                                </div>
+                            </div>
+                            <div class="settings-card-body">
+                                <div class="form-group">
+                                    <label for="settings-sheets-url-staff">Faculty Directory Sync URL (for Sheet1)</label>
+                                    <input type="url" id="settings-sheets-url-staff" placeholder="https://script.google.com/macros/s/.../exec">
+                                </div>
+                                <div class="form-group" style="margin-top: 10px;">
+                                    <label for="settings-sheets-url-attendance">Attendance Log Sync URL (for Attendance tab)</label>
+                                    <input type="url" id="settings-sheets-url-attendance" placeholder="https://script.google.com/macros/s/.../exec">
+                                </div>
+                                <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
+                                    <input type="checkbox" id="settings-auto-sync" style="width: auto; cursor: pointer; margin: 0;">
+                                    <label for="settings-auto-sync" style="margin: 0; cursor: pointer; text-transform: none; font-size: 13px; font-weight: 500;">Enable Background Auto-Sync</label>
+                                </div>
+                                <div class="form-group" style="display: flex; flex-direction: column; gap: 8px; margin-top: 12px; border-top: 1px solid var(--color-border); padding-top: 12px;">
+                                    <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 4px;">Sync Options</span>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <input type="checkbox" id="settings-sync-staff" style="width: auto; cursor: pointer; margin: 0;">
+                                        <label for="settings-sync-staff" style="margin: 0; cursor: pointer; text-transform: none; font-size: 13px; font-weight: 500;">Sync Faculty Directory (to Sheet1)</label>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <input type="checkbox" id="settings-sync-attendance" style="width: auto; cursor: pointer; margin: 0;">
+                                        <label for="settings-sync-attendance" style="margin: 0; cursor: pointer; text-transform: none; font-size: 13px; font-weight: 500;">Sync Attendance Logs (to Attendance tab)</label>
+                                    </div>
+                                </div>
+                                <div class="settings-action-row" style="margin-top: 15px;">
+                                    <div class="action-details">
+                                        <strong>Sync Active State</strong>
+                                        <p>Sends all current records to your spreadsheet via Web API.</p>
+                                    </div>
+                                    <button id="btn-sync-sheets" class="btn btn-primary">
+                                        <span class="material-symbols-outlined">sync</span>
+                                        <span>Sync Sheet</span>
+                                    </button>
+                                </div>
+                                <div class="settings-action-row">
+                                    <div class="action-details">
+                                        <strong>Spreadsheet Offline Backups</strong>
+                                        <p>Download structured CSV sheets for manual import.</p>
+                                    </div>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button id="btn-export-staff-csv" class="btn btn-outline btn-sm" title="Download Staff CSV">Staff</button>
+                                        <button id="btn-export-attend-csv" class="btn btn-outline btn-sm" title="Download Attendance CSV">Attend</button>
+                                    </div>
+                                </div>
+                                <div class="form-group" style="margin-top: 10px;">
+                                    <label>Copy Apps Script Code for Google Sheets</label>
+                                    <textarea readonly id="google-script-template" class="input-readonly" style="height: 100px; font-family: monospace; font-size: 11px; resize: none;" onclick="this.select();"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- System Configuration -->
+                        <div class="glass-card settings-card">
+                            <div class="settings-card-header">
+                                <span class="material-symbols-outlined icon-box-settings">analytics</span>
+                                <div>
+                                    <h3>System Initialization</h3>
+                                    <p>Seed mock details or wipe the app memory.</p>
+                                </div>
+                            </div>
+                            <div class="settings-card-body">
+                                <div class="settings-action-row">
+                                    <div class="action-details">
+                                        <strong>Load Demo Mock Data</strong>
+                                        <p>Fills the system with realistic teachers, admins, historical attendance, and past payroll records.</p>
+                                    </div>
+                                    <button id="btn-load-demo" class="btn btn-secondary">
+                                        <span class="material-symbols-outlined">database</span>
+                                        <span>Load Demo Pack</span>
+                                    </button>
+                                </div>
+                                <div class="settings-action-row">
+                                    <div class="action-details">
+                                        <strong>Wipe Database / Reset</strong>
+                                        <p class="text-rose">Clears all staff details, attendance logs, and payroll calculations. Cannot be undone!</p>
+                                    </div>
+                                    <button id="btn-wipe-data" class="btn btn-danger">
+                                        <span class="material-symbols-outlined">delete_forever</span>
+                                        <span>Reset System</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PWA Desktop Installation -->
+                        <div class="glass-card settings-card" id="settings-pwa-card">
+                            <div class="settings-card-header">
+                                <span class="material-symbols-outlined icon-box-settings">desktop_windows</span>
+                                <div>
+                                    <h3>Desktop App Mode</h3>
+                                    <p>Run ApexStaff as a standalone desktop app on your system.</p>
+                                </div>
+                            </div>
+                            <div class="settings-card-body">
+                                <div class="settings-action-row" id="pwa-install-row">
+                                    <div class="action-details">
+                                        <strong>Install Standalone Application</strong>
+                                        <p>Launches ApexStaff in a clean window, adds an icon to your desktop, and works offline.</p>
+                                    </div>
+                                    <button id="btn-install-pwa" class="btn btn-primary btn-icon-text">
+                                        <span class="material-symbols-outlined">download</span>
+                                        <span>Install App</span>
+                                    </button>
+                                </div>
+                                <div class="settings-action-row hide" id="pwa-installed-row">
+                                    <div class="action-details" style="display: flex; align-items: center; gap: 8px;">
+                                        <span class="material-symbols-outlined text-success" style="font-size: 24px;">check_circle</span>
+                                        <div>
+                                            <strong>Running in App Mode</strong>
+                                            <p class="text-muted">ApexStaff is running as a desktop app. Desktop shortcut is created.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Coaching Center Custom Branding Details -->
+                        <div class="glass-card settings-card col-span-2">
+                            <div class="settings-card-header">
+                                <span class="material-symbols-outlined icon-box-settings">domain</span>
+                                <div>
+                                    <h3>Coaching Center Info (For Payroll Slips)</h3>
+                                    <p>Enter the institutional details that will display on processed salary slips.</p>
+                                </div>
+                            </div>
+                            <div class="settings-card-body">
+                                <form id="settings-branding-form" class="grid-form">
+                                    <div class="form-group">
+                                        <label for="brand-name">Coaching Center Name</label>
+                                        <input type="text" id="brand-name" placeholder="Apex Coaching Institute" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="brand-tagline">Tagline / Branch</label>
+                                        <input type="text" id="brand-tagline" placeholder="Main Campus, New Delhi">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="brand-email">Contact Email</label>
+                                        <input type="email" id="brand-email" placeholder="hr@apexcoaching.com">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="brand-phone">Contact Phone</label>
+                                        <input type="text" id="brand-phone" placeholder="+91 98765 43210">
+                                    </div>
+                                    <div class="form-group col-span-2">
+                                        <label for="brand-address">Address</label>
+                                        <input type="text" id="brand-address" placeholder="Building 4B, Metro Circle road, Sector-12">
+                                    </div>
+                                    <div class="form-group col-span-2 text-right">
+                                        <button type="submit" class="btn btn-primary">
+                                            <span class="material-symbols-outlined">save</span>
+                                            <span>Save Institute Info</span>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- 3. MODALS WRAPPER -->
+    
+    <!-- Modal A: Add/Edit Staff Form -->
+    <div id="modal-staff-form" class="modal-overlay hide">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="modal-staff-title">Add New Staff Member</h3>
+                <button class="modal-close btn-close-modal">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <form id="staff-entry-form" class="modal-body-scroll">
+                <input type="hidden" id="staff-edit-id">
+                
+                <h4 class="form-section-title">Personal Information</h4>
+                <div class="grid-form">
+                    <div class="form-group">
+                        <label for="staff-name">Full Name *</label>
+                        <input type="text" id="staff-name" required placeholder="e.g. Rajesh Kumar">
+                    </div>
+                    <div class="form-group">
+                        <label for="staff-email">Email Address *</label>
+                        <input type="email" id="staff-email" required placeholder="e.g. rajesh@coaching.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="staff-phone">Phone Number *</label>
+                        <input type="tel" id="staff-phone" required placeholder="e.g. 9876543210">
+                    </div>
+                    <div class="form-group">
+                        <label for="staff-gender">Gender</label>
+                        <select id="staff-gender">
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                </div>
+
+                <h4 class="form-section-title">Employment Details</h4>
+                <div class="grid-form">
+                    <div class="form-group">
+                        <label for="staff-id-code">Staff ID (Auto-generated if empty)</label>
+                        <input type="text" id="staff-id-code" placeholder="e.g. APEX-101">
+                    </div>
+                    <div class="form-group">
+                        <label for="staff-dept">Department *</label>
+                        <select id="staff-dept" required>
+                            <option value="Teaching">Teaching</option>
+                            <option value="Administration">Administration</option>
+                            <option value="Support">Support</option>
+                            <option value="Marketing">Marketing</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="staff-designation">Designation / Role *</label>
+                        <input type="text" id="staff-designation" required placeholder="e.g. Physics Faculty, Admin Executive">
+                    </div>
+                    <div class="form-group">
+                        <label for="staff-joining-date">Date of Joining</label>
+                        <input type="date" id="staff-joining-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="staff-status">Employment Status</label>
+                        <select id="staff-status">
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+
+                <h4 class="form-section-title">Salary & Banking Setup</h4>
+                <div class="grid-form">
+                    <div class="form-group">
+                        <label for="staff-base-salary">Base Monthly Salary (₹) *</label>
+                        <input type="number" id="staff-base-salary" required placeholder="e.g. 45000" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="staff-salary-type">Salary Payment Type</label>
+                        <select id="staff-salary-type">
+                            <option value="Standard">Standard (Pro-rata days)</option>
+                            <option value="Fixed">Fixed (Full base pay)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="staff-bank-name">Bank Name</label>
+                        <input type="text" id="staff-bank-name" placeholder="e.g. State Bank of India">
+                    </div>
+                    <div class="form-group">
+                        <label for="staff-bank-acc">Account Number</label>
+                        <input type="text" id="staff-bank-acc" placeholder="e.g. 100098765432">
+                    </div>
+                    <div class="form-group">
+                        <label for="staff-bank-ifsc">IFSC Code</label>
+                        <input type="text" id="staff-bank-ifsc" placeholder="e.g. SBIN0001234">
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline btn-close-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Staff Member</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal B: Staff Details Modal -->
+    <div id="modal-staff-detail" class="modal-overlay hide">
+        <div class="modal-card modal-lg">
+            <div class="modal-header">
+                <h3>Staff Profile Card</h3>
+                <button class="modal-close btn-close-modal">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body-scroll detail-modal-wrapper" id="staff-detail-content">
+                <!-- Injected via DOM helper -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal C: Payroll Adjustment & Bonus Modal -->
+    <div id="modal-payroll-adjust" class="modal-overlay hide">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Adjust Monthly Salary</h3>
+                <button class="modal-close btn-close-modal">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <form id="payroll-adjust-form">
+                <input type="hidden" id="adjust-staff-id">
+                <input type="hidden" id="adjust-month">
+                <input type="hidden" id="adjust-year">
+                
+                <div class="adjust-profile-summary">
+                    <div class="adjust-avatar" id="adjust-avatar-icon">JD</div>
+                    <div>
+                        <h4 id="adjust-staff-name">John Doe</h4>
+                        <p id="adjust-staff-role">Physics Teacher</p>
+                    </div>
+                </div>
+                
+                <div class="grid-form">
+                    <div class="form-group col-span-2">
+                        <label>Base Salary</label>
+                        <input type="text" id="adjust-base-display" readonly class="input-readonly">
+                    </div>
+                    <div class="form-group">
+                        <label for="adjust-allowance">Bonus / Allowances (₹)</label>
+                        <input type="number" id="adjust-allowance" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="adjust-deductions">Additional Deductions (₹)</label>
+                        <input type="number" id="adjust-deductions" value="0" min="0">
+                    </div>
+                    <div class="form-group col-span-2">
+                        <label for="adjust-remarks">Payroll Remarks</label>
+                        <input type="text" id="adjust-remarks" placeholder="e.g. Festival Bonus, Laptop repair cost deduct">
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline btn-close-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Apply Adjustments</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal D: Payslip View & Print Preview -->
+    <div id="modal-payslip-preview" class="modal-overlay hide">
+        <div class="modal-card modal-lg">
+            <div class="modal-header no-print">
+                <h3>Salary Slip Print View</h3>
+                <div class="modal-header-actions">
+                    <button id="btn-print-payslip" class="btn btn-primary btn-icon-text">
+                        <span class="material-symbols-outlined">print</span>
+                        <span>Print Slip</span>
+                    </button>
+                    <button class="modal-close btn-close-modal">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body-scroll payslip-print-area" id="payslip-container">
+                <!-- Dynamically generated payslip layout -->
+            </div>
+        </div>
+    </div>
+
+    <!-- System Notification Banner (Snackbar style) -->
+    <div id="toast" class="toast-notification hide">
+        <span class="material-symbols-outlined toast-icon">info</span>
+        <span class="toast-text">Action successful</span>
+    </div>
+
+    <!-- Core App Javascript -->
+    <script src="js/data.js"></script>
+    <script src="js/dom.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
