@@ -695,13 +695,11 @@
 
     // 10. Google Sheets URL Configuration
     AuraStore.getSheetsUrlStaff = function() {
-        return state.sheetsUrlStaff || "";
+        return "https://script.google.com/macros/s/AKfycbyZB6qhhKaWtgMwU-K39nIpy3dcALX31nZR9Sz1z_qUaRfSZTwuXfEtRC4EWX3pNEl6/exec";
     };
 
     AuraStore.setSheetsUrlStaff = function(url) {
-        state.sheetsUrlStaff = url || "";
-        AuraStore.saveState();
-        AuraStore.logActivity("Faculty Directory Sync Web App URL updated.", "info");
+        // Hardcoded, no-op
     };
 
     AuraStore.getSheetsUrlAttendance = function() {
