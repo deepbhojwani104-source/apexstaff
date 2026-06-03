@@ -290,6 +290,82 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Dynamic Student Enrollment Dues Report -->
+                    <div class="glass-card" style="margin-top: 24px;">
+                        <div class="card-header" style="display: flex; flex-direction: column; gap: 12px; align-items: stretch;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <h3>Student Enrollment & Dues Report</h3>
+                                <span class="badge badge-info" id="report-total-count">0 Enrolled</span>
+                            </div>
+                            
+                            <!-- Filters Toolbar -->
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; background: rgba(255, 255, 255, 0.02); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--color-border);">
+                                <div class="form-group" style="margin:0;">
+                                    <label style="font-size:11px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Search Name / ID</label>
+                                    <input type="text" id="report-search" placeholder="Search by name or ID..." style="padding: 6px 10px; font-size:12.5px;">
+                                </div>
+                                <div class="form-group" style="margin:0;">
+                                    <label style="font-size:11px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Filter Course</label>
+                                    <div class="filter-select">
+                                        <select id="report-filter-course" style="padding: 6px 10px; font-size:12.5px; height: 33px;">
+                                            <!-- Dynamically populated courses -->
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-group" style="margin:0;">
+                                    <label style="font-size:11px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Filter Dues</label>
+                                    <div class="filter-select">
+                                        <select id="report-filter-dues" style="padding: 6px 10px; font-size:12.5px; height: 33px;">
+                                            <option value="all">All Dues</option>
+                                            <option value="pending">Pending Dues (Due &gt; 0)</option>
+                                            <option value="paid">Fully Paid (Due = 0)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-group" style="margin:0;">
+                                    <label style="font-size:11px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Dues On / Before Date</label>
+                                    <input type="date" id="report-filter-due-date" style="padding: 6px 10px; font-size:12.5px; line-height:1; height: 33px;">
+                                </div>
+                            </div>
+
+                            <!-- Dues metrics sub-row -->
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; margin-top: 5px;">
+                                <div style="background: rgba(99, 102, 241, 0.05); padding: 8px; border-radius: 6px; border: 1px solid rgba(99, 102, 241, 0.1);">
+                                    <div style="font-size:11px; color: var(--text-secondary); margin-bottom: 2px;">Total Fees</div>
+                                    <strong id="report-metric-total" style="font-size:14px; color: var(--color-primary);">₹0</strong>
+                                </div>
+                                <div style="background: rgba(16, 185, 129, 0.05); padding: 8px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.1);">
+                                    <div style="font-size:11px; color: var(--text-secondary); margin-bottom: 2px;">Total Received</div>
+                                    <strong id="report-metric-received" style="font-size:14px; color: var(--color-success);">₹0</strong>
+                                </div>
+                                <div style="background: rgba(239, 68, 68, 0.05); padding: 8px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.1);">
+                                    <div style="font-size:11px; color: var(--text-secondary); margin-bottom: 2px;">Total Due</div>
+                                    <strong id="report-metric-due" style="font-size:14px; color: var(--color-danger);">₹0</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="settings-card-body table-responsive-container" style="margin-top: 15px;">
+                            <table class="data-table" id="report-students-table">
+                                <thead>
+                                    <tr>
+                                        <th>Enrollment ID</th>
+                                        <th>Name</th>
+                                        <th>Mobile No</th>
+                                        <th>Courses</th>
+                                        <th>Course Fees</th>
+                                        <th>Amount Received</th>
+                                        <th>Due Amount</th>
+                                        <th>Due Date</th>
+                                        <th>Remarks</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="report-students-body">
+                                    <!-- Dynamic rows from report filtering -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- View 2: Staff Directory -->
@@ -553,6 +629,10 @@
                                         <input type="text" id="student-name" placeholder="Enter student's full name" required>
                                     </div>
                                     <div class="form-group">
+                                        <label for="student-mobile">Mobile No *</label>
+                                        <input type="tel" id="student-mobile" placeholder="10-digit mobile number" pattern="[0-9]{10}" required>
+                                    </div>
+                                    <div class="form-group">
                                         <label for="student-branch">Branch *</label>
                                         <div class="filter-select">
                                             <select id="student-branch" required>
@@ -560,21 +640,29 @@
                                             </select>
                                         </div>
                                     </div>
-                                    <div class="form-group">
-                                        <label for="student-course">Course *</label>
-                                        <div class="filter-select">
-                                            <select id="student-course" required>
-                                                <!-- Dynamic options from course list -->
-                                            </select>
+                                    <div class="form-group col-span-2">
+                                        <label style="margin-bottom: 8px;">Enrolled Courses (Select Multiple) *</label>
+                                        <div class="custom-multiselect" id="student-courses-dropdown-container" style="position: relative;">
+                                            <div class="multiselect-select-box" id="student-courses-select-box" style="display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--color-border); padding: 10px 14px; border-radius: var(--radius-sm); background: var(--bg-input); cursor: pointer; user-select: none;">
+                                                <span id="selected-courses-text" style="color: var(--text-secondary); font-size: 13.5px;">Select Courses...</span>
+                                                <span class="material-symbols-outlined" style="font-size: 18px; color: var(--text-muted);">expand_more</span>
+                                            </div>
+                                            <div class="multiselect-dropdown hide" id="student-courses-dropdown-list" style="position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-modal); border: 1px solid var(--color-border); border-radius: var(--radius-sm); margin-top: 4px; box-shadow: var(--shadow-soft); max-height: 200px; overflow-y: auto; z-index: 100; padding: 8px;">
+                                                <!-- Dynamic course checkboxes go here -->
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="form-group">
                                         <label for="student-course-fee">Course Fee (₹) *</label>
-                                        <input type="number" id="student-course-fee" readonly class="input-readonly">
+                                        <input type="number" id="student-course-fee" readonly class="input-readonly" value="0">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="student-due-amount">Due Amount (₹) *</label>
+                                        <input type="number" id="student-due-amount" readonly class="input-readonly" value="0">
                                     </div>
                                     <div class="form-group">
                                         <label for="student-amount-received">Amount Received (₹) *</label>
-                                        <input type="number" id="student-amount-received" placeholder="e.g. 5000" min="0" required>
+                                        <input type="number" id="student-amount-received" placeholder="e.g. 5000" min="0" required value="0">
                                     </div>
                                     <div class="form-group">
                                         <label for="student-due-date">Due Date</label>
@@ -602,6 +690,11 @@
                                             </label>
                                         </div>
                                     </div>
+
+                                    <div class="form-group col-span-2">
+                                        <label for="student-remarks">Remarks</label>
+                                        <input type="text" id="student-remarks" placeholder="Add payment note or details">
+                                    </div>
                                     
                                     <div class="form-group col-span-2 text-right" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
                                         <button type="button" id="btn-clear-student" class="btn btn-outline">Clear</button>
@@ -610,7 +703,7 @@
                                 </form>
                             </div>
                         </div>
-
+ 
                         <!-- Enrolled Students List -->
                         <div class="glass-card settings-card col-span-2">
                             <div class="settings-card-header">
@@ -624,15 +717,16 @@
                                 <table class="data-table" id="students-list-table">
                                     <thead>
                                         <tr>
-                                            <th>Student ID</th>
+                                            <th>Enrollment ID</th>
                                             <th>Name</th>
-                                            <th>Course</th>
-                                            <th>Branch</th>
+                                            <th>Mobile No</th>
+                                            <th>Courses</th>
                                             <th>Course Fee</th>
                                             <th>Amount Received</th>
                                             <th>Pending Due</th>
                                             <th>Due Date</th>
                                             <th>Fee Type</th>
+                                            <th>Remarks</th>
                                             <th class="text-center">Actions</th>
                                         </tr>
                                     </thead>

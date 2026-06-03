@@ -113,6 +113,7 @@ document.addEventListener("DOMContentLoaded", function() {
     function renderViewData(viewName) {
         if (viewName === "dashboard") {
             AuraDOM.renderDashboard();
+            updateDashboardReport();
         } else if (viewName === "directory") {
             refreshDirectory();
         } else if (viewName === "attendance") {
@@ -588,23 +589,73 @@ document.addEventListener("DOMContentLoaded", function() {
     // ==========================================================================
     // 7.5 Student Enrollment & Course Master Actions
     // ==========================================================================
-    function refreshStudents() {
-        AuraDOM.renderStudentsView();
+    function populateReportCoursesFilter() {
+        const filterSelect = $("#report-filter-course");
+        if (!filterSelect) return;
+        
+        const courses = AuraStore.getCourses();
+        const currentValue = filterSelect.value;
+        
+        filterSelect.innerHTML = `<option value="all">All Courses</option>`;
+        courses.forEach(c => {
+            const opt = document.createElement("option");
+            opt.value = c.name;
+            opt.textContent = c.name;
+            filterSelect.appendChild(opt);
+        });
+        
+        // Restore value if still present
+        if (courses.some(c => c.name === currentValue)) {
+            filterSelect.value = currentValue;
+        } else {
+            filterSelect.value = "all";
+        }
     }
 
-    // Auto update Course Fee on Course Selection change
-    const studentCourseField = $("#student-course");
-    if (studentCourseField) {
-        studentCourseField.addEventListener("change", function() {
-            const courseName = this.value;
-            const courses = AuraStore.getCourses();
-            const course = courses.find(c => c.name === courseName);
-            if (course) {
-                $("#student-course-fee").value = course.price;
-            } else {
-                $("#student-course-fee").value = 0;
+    function updateDashboardReport() {
+        const students = AuraStore.getStudents() || [];
+        const searchQuery = ($("#report-search") ? $("#report-search").value : "").toLowerCase().trim();
+        const selectedCourse = $("#report-filter-course") ? $("#report-filter-course").value : "all";
+        const selectedDuesFilter = $("#report-filter-dues") ? $("#report-filter-dues").value : "all";
+        const selectedDueDateStr = $("#report-filter-due-date") ? $("#report-filter-due-date").value : "";
+
+        const filtered = students.filter(s => {
+            // 1. Text Search name / ID
+            if (searchQuery !== "") {
+                const nameMatch = s.name ? s.name.toLowerCase().includes(searchQuery) : false;
+                const idMatch = s.id ? s.id.toLowerCase().includes(searchQuery) : false;
+                if (!nameMatch && !idMatch) return false;
             }
+
+            // 2. Filter Course
+            if (selectedCourse !== "all") {
+                const coursesList = s.course ? s.course.split(", ") : [];
+                if (!coursesList.includes(selectedCourse)) return false;
+            }
+
+            // 3. Filter Dues
+            const dueAmt = Math.max(0, s.courseFee - s.amountReceived);
+            if (selectedDuesFilter === "pending" && dueAmt === 0) return false;
+            if (selectedDuesFilter === "paid" && dueAmt > 0) return false;
+
+            // 4. Filter Due Date (on or before selected date)
+            if (selectedDueDateStr !== "") {
+                if (!s.dueDate) return false;
+                const studentDate = new Date(s.dueDate).getTime();
+                const filterDate = new Date(selectedDueDateStr).getTime();
+                if (studentDate > filterDate) return false;
+            }
+
+            return true;
         });
+
+        AuraDOM.renderDashboardReport(filtered);
+    }
+
+    function refreshStudents() {
+        AuraDOM.renderStudentsView();
+        populateReportCoursesFilter();
+        updateDashboardReport();
     }
 
     // Course Master Add/Update submit
@@ -645,6 +696,33 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
+    // Toggle student courses dropdown list visibility on click
+    const selectBox = $("#student-courses-select-box");
+    const dropdownList = $("#student-courses-dropdown-list");
+    if (selectBox && dropdownList) {
+        selectBox.addEventListener("click", function(e) {
+            e.stopPropagation();
+            dropdownList.classList.toggle("hide");
+        });
+        
+        // Hide dropdown list when clicking anywhere else
+        document.addEventListener("click", function(e) {
+            if (!e.target.closest("#student-courses-dropdown-container")) {
+                dropdownList.classList.add("hide");
+            }
+        });
+    }
+
+    // Auto-update dues pending on received input
+    const receivedInput = $("#student-amount-received");
+    if (receivedInput) {
+        receivedInput.addEventListener("input", function() {
+            const courseFee = Number($("#student-course-fee").value) || 0;
+            const received = Number(this.value) || 0;
+            $("#student-due-amount").value = Math.max(0, courseFee - received);
+        });
+    }
+
     // Student Enrollment Submit form (Add or Edit)
     const studentForm = $("#student-enrollment-form");
     if (studentForm) {
@@ -652,11 +730,20 @@ document.addEventListener("DOMContentLoaded", function() {
             e.preventDefault();
             const editId = $("#student-edit-id").value.trim();
             const name = $("#student-name").value.trim();
-            const course = $("#student-course").value;
+            const mobile = $("#student-mobile").value.trim();
             const branch = $("#student-branch").value;
             const courseFee = Number($("#student-course-fee").value);
             const amountReceived = Number($("#student-amount-received").value);
+            const dueAmount = Number($("#student-due-amount").value);
             const dueDate = $("#student-due-date").value;
+            const remarks = $("#student-remarks").value.trim();
+
+            // Get selected courses
+            const selectedCourses = [];
+            document.querySelectorAll('input[name="student-course-cb"]:checked').forEach(cb => {
+                selectedCourses.push(cb.value);
+            });
+            const course = selectedCourses.join(", ");
 
             // Get checked fee types
             const feeTypes = [];
@@ -664,8 +751,8 @@ document.addEventListener("DOMContentLoaded", function() {
                 feeTypes.push(cb.value);
             });
 
-            if (name === "" || !course || !branch || isNaN(amountReceived) || amountReceived < 0) {
-                AuraDOM.showToast("Please fill all mandatory fields correctly.", "error");
+            if (name === "" || mobile === "" || selectedCourses.length === 0 || !branch || isNaN(amountReceived) || amountReceived < 0) {
+                AuraDOM.showToast("Please fill all mandatory fields and select at least one course.", "error");
                 return;
             }
 
@@ -676,26 +763,37 @@ document.addEventListener("DOMContentLoaded", function() {
 
             const studentData = {
                 name,
+                mobile,
                 course,
                 branch,
                 courseFee,
                 amountReceived,
+                dueAmount,
                 dueDate,
+                remarks,
                 feeType: feeTypes
             };
 
             try {
+                let savedStudent = null;
                 if (editId === "") {
                     // ADD
-                    AuraStore.addStudent(studentData);
+                    savedStudent = AuraStore.addStudent(studentData);
                     AuraDOM.showToast(`Enrolled student ${name} successfully!`, "success");
                 } else {
                     // EDIT
-                    AuraStore.updateStudent(editId, studentData);
+                    studentData.id = editId;
+                    savedStudent = AuraStore.updateStudent(editId, studentData);
                     AuraDOM.showToast(`Updated student profile for ${name}`, "success");
                 }
                 clearStudentForm();
                 refreshStudents();
+                
+                // Prompt printable receipt PDF immediately
+                if (savedStudent) {
+                    AuraDOM.printFeeReceipt(savedStudent);
+                }
+
                 triggerAutoSync();
             } catch (err) {
                 AuraDOM.showToast(err.message, "error");
@@ -719,22 +817,34 @@ document.addEventListener("DOMContentLoaded", function() {
         document.querySelectorAll('input[name="fee-type-cb"]').forEach(cb => {
             cb.checked = false;
         });
-        // Reset course fee default
-        const courses = AuraStore.getCourses();
-        if (courses.length > 0) {
-            $("#student-course-fee").value = courses[0].price;
-        } else {
-            $("#student-course-fee").value = 0;
+        document.querySelectorAll('input[name="student-course-cb"]').forEach(cb => {
+            cb.checked = false;
+        });
+        $("#student-course-fee").value = 0;
+        $("#student-due-amount").value = 0;
+        const textSpan = $("#selected-courses-text");
+        if (textSpan) {
+            textSpan.textContent = "Select Courses...";
+            textSpan.style.color = "var(--text-secondary)";
         }
         $("#student-name").focus();
     }
 
-    // Student list action delegation (Edit & Delete)
     const studentListTable = $("#students-list-table");
     if (studentListTable) {
         studentListTable.addEventListener("click", function(e) {
             const editBtn = e.target.closest(".btn-edit-student");
             const deleteBtn = e.target.closest(".btn-delete-student");
+            const printBtn = e.target.closest(".btn-print-receipt");
+
+            if (printBtn) {
+                const id = printBtn.dataset.id;
+                const students = AuraStore.getStudents();
+                const student = students.find(s => s.id === id);
+                if (student) {
+                    AuraDOM.printFeeReceipt(student);
+                }
+            }
 
             if (editBtn) {
                 const id = editBtn.dataset.id;
@@ -744,11 +854,26 @@ document.addEventListener("DOMContentLoaded", function() {
                     // Load values into form
                     $("#student-edit-id").value = student.id;
                     $("#student-name").value = student.name;
+                    $("#student-mobile").value = student.mobile || "";
                     $("#student-branch").value = student.branch;
-                    $("#student-course").value = student.course;
                     $("#student-course-fee").value = student.courseFee;
                     $("#student-amount-received").value = student.amountReceived;
+                    $("#student-due-amount").value = student.dueAmount || 0;
                     $("#student-due-date").value = student.dueDate || "";
+                    $("#student-remarks").value = student.remarks || "";
+
+                    // Set course checkbox states
+                    const selectedCourses = student.course ? student.course.split(", ") : [];
+                    document.querySelectorAll('input[name="student-course-cb"]').forEach(cb => {
+                        cb.checked = selectedCourses.includes(cb.value);
+                    });
+
+                    // Update dropdown display label
+                    const textSpan = $("#selected-courses-text");
+                    if (textSpan) {
+                        textSpan.textContent = selectedCourses.length > 0 ? selectedCourses.join(", ") : "Select Courses...";
+                        textSpan.style.color = selectedCourses.length > 0 ? "var(--text-primary)" : "var(--text-secondary)";
+                    }
 
                     // Reset and set fee type cbs
                     document.querySelectorAll('input[name="fee-type-cb"]').forEach(cb => {
@@ -1018,6 +1143,22 @@ document.addEventListener("DOMContentLoaded", function() {
         
         // Initial dashboard draw
         AuraDOM.renderDashboard();
+        
+        // Populate report courses and render dashboard report
+        populateReportCoursesFilter();
+        updateDashboardReport();
+        
+        // Bind Dashboard student report filter listeners
+        const reportSearch = $("#report-search");
+        const reportFilterCourse = $("#report-filter-course");
+        const reportFilterDues = $("#report-filter-dues");
+        const reportFilterDueDate = $("#report-filter-due-date");
+
+        if (reportSearch) reportSearch.addEventListener("input", updateDashboardReport);
+        if (reportFilterCourse) reportFilterCourse.addEventListener("change", updateDashboardReport);
+        if (reportFilterDues) reportFilterDues.addEventListener("change", updateDashboardReport);
+        if (reportFilterDueDate) reportFilterDueDate.addEventListener("change", updateDashboardReport);
+
         triggerAutoSync();
 
         // Bind escape key to close modals

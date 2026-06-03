@@ -755,29 +755,84 @@
     // ==========================================================================
     // 7. Student Enrollment and Course Master Renderers
     // ==========================================================================
+    function recalculateStudentFees() {
+        const checkboxes = document.querySelectorAll('input[name="student-course-cb"]:checked');
+        let totalFee = 0;
+        const selectedNames = [];
+        checkboxes.forEach(cb => {
+            totalFee += Number(cb.dataset.price || 0);
+            selectedNames.push(cb.value);
+        });
+
+        // Update Course Fee field
+        const feeInput = document.getElementById("student-course-fee");
+        if (feeInput) {
+            feeInput.value = totalFee;
+        }
+
+        // Update Selected Courses Text in Dropdown
+        const selectedTextSpan = document.getElementById("selected-courses-text");
+        if (selectedTextSpan) {
+            selectedTextSpan.textContent = selectedNames.length > 0 ? selectedNames.join(", ") : "Select Courses...";
+            selectedTextSpan.style.color = selectedNames.length > 0 ? "var(--text-primary)" : "var(--text-secondary)";
+        }
+
+        // Calculate Due Amount Automatically
+        const amountReceivedInput = document.getElementById("student-amount-received");
+        const dueAmountInput = document.getElementById("student-due-amount");
+        if (dueAmountInput) {
+            const amountReceived = Number(amountReceivedInput ? amountReceivedInput.value : 0) || 0;
+            const dueAmount = Math.max(0, totalFee - amountReceived);
+            dueAmountInput.value = dueAmount;
+        }
+    }
+    AuraDOM.recalculateTotalCourseFee = recalculateStudentFees;
+
     AuraDOM.renderStudentsView = function() {
         const courses = AuraStore.getCourses();
         const students = AuraStore.getStudents();
 
-        // 1. Render Course options dropdown in student form
-        const studentCourseSelect = $("#student-course");
-        if (studentCourseSelect) {
-            studentCourseSelect.innerHTML = "";
-            courses.forEach(c => {
-                const opt = document.createElement("option");
-                opt.value = c.name;
-                opt.textContent = `${c.name} (₹${c.price.toLocaleString('en-IN')})`;
-                studentCourseSelect.appendChild(opt);
-            });
-            // Trigger course fee auto-population on load/change
-            if (courses.length > 0) {
-                const selectedCourseName = studentCourseSelect.value;
-                const course = courses.find(c => c.name === selectedCourseName);
-                if (course) {
-                    $("#student-course-fee").value = course.price;
-                }
+        // 1. Render Course options checkboxes inside custom dropdown list
+        const coursesListContainer = $("#student-courses-dropdown-list");
+        if (coursesListContainer) {
+            coursesListContainer.innerHTML = "";
+            if (courses.length === 0) {
+                coursesListContainer.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 10px 0;">No courses configured.</div>`;
             } else {
-                $("#student-course-fee").value = 0;
+                courses.forEach(c => {
+                    const label = document.createElement("label");
+                    label.style.display = "flex";
+                    label.style.alignItems = "center";
+                    label.style.gap = "8px";
+                    label.style.cursor = "pointer";
+                    label.style.textTransform = "none";
+                    label.style.fontSize = "13px";
+                    label.style.padding = "6px 8px";
+                    label.style.borderRadius = "4px";
+                    label.style.margin = "2px 0";
+                    label.style.transition = "background var(--transition-fast)";
+                    label.addEventListener("mouseover", () => label.style.background = "rgba(255,255,255,0.05)");
+                    label.addEventListener("mouseout", () => label.style.background = "transparent");
+                    label.innerHTML = `
+                        <input type="checkbox" name="student-course-cb" value="${c.name}" data-price="${c.price}" style="width:auto; height:auto; margin:0; cursor:pointer;">
+                        <span style="flex-grow:1;">${c.name}</span>
+                        <strong style="color: var(--color-primary);">₹${c.price.toLocaleString('en-IN')}</strong>
+                    `;
+                    coursesListContainer.appendChild(label);
+                });
+
+                // Attach change event listener to checkboxes
+                const checkboxes = coursesListContainer.querySelectorAll('input[name="student-course-cb"]');
+                checkboxes.forEach(cb => {
+                    cb.addEventListener("change", recalculateStudentFees);
+                });
+            }
+            $("#student-course-fee").value = 0;
+            $("#student-due-amount").value = 0;
+            const textSpan = $("#selected-courses-text");
+            if (textSpan) {
+                textSpan.textContent = "Select Courses...";
+                textSpan.style.color = "var(--text-secondary)";
             }
         }
 
@@ -815,7 +870,7 @@
             if (students.length === 0) {
                 studentListBody.innerHTML = `
                     <tr>
-                        <td colspan="10" class="text-center text-muted py-4">No enrolled students registered.</td>
+                        <td colspan="11" class="text-center text-muted py-4">No enrolled students registered.</td>
                     </tr>
                 `;
             } else {
@@ -827,8 +882,8 @@
                     tr.innerHTML = `
                         <td><strong>${s.id}</strong></td>
                         <td>${s.name}</td>
-                        <td><span class="node-dept-pill">${s.course}</span></td>
-                        <td>${s.branch}</td>
+                        <td>${s.mobile || '-'}</td>
+                        <td><span class="node-dept-pill" style="white-space: normal; text-align: left;">${s.course}</span></td>
                         <td>₹${s.courseFee.toLocaleString('en-IN')}</td>
                         <td>₹${s.amountReceived.toLocaleString('en-IN')}</td>
                         <td>${dueDisplay}</td>
@@ -836,8 +891,12 @@
                         <td>
                             ${s.feeType ? s.feeType.map(t => `<span class="badge badge-info" style="font-size:10px; margin: 1px;">${t}</span>`).join('') : ''}
                         </td>
+                        <td><span style="font-size: 12px; color: var(--text-secondary); max-width: 150px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${s.remarks || ''}">${s.remarks || '-'}</span></td>
                         <td class="text-center">
                             <div class="table-action-btn-row" style="justify-content: center;">
+                                <button class="btn btn-sm btn-print-receipt" data-id="${s.id}" title="Print Fee Receipt" style="padding: 4px 8px; background: var(--color-success); border-color: var(--color-success); color: white;">
+                                    <span class="material-symbols-outlined" style="font-size:16px;">receipt</span>
+                                </button>
                                 <button class="btn btn-outline btn-sm btn-edit-student" data-id="${s.id}" title="Edit details">
                                     <span class="material-symbols-outlined" style="font-size:16px;">edit</span>
                                 </button>
@@ -885,6 +944,345 @@
         toastTimeout = setTimeout(() => {
             toast.classList.add("hide");
         }, 3500);
+    };
+
+    AuraDOM.printFeeReceipt = function(student) {
+        const branding = window.AuraStore ? window.AuraStore.getBranding() : {
+            name: "Apex Coaching Institute",
+            tagline: "Unlocking Academic Excellence",
+            email: "contact@apexinstitute.edu",
+            phone: "+91 98765 01234",
+            address: "A-12, Metro Plaza, Sector 15, Noida, UP - 201301"
+        };
+
+        const dueAmt = Math.max(0, student.courseFee - student.amountReceived);
+        const receiptNo = "REC-" + Date.now().toString().slice(-6);
+        const receiptDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const dueDateDisplay = student.dueDate ? new Date(student.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A';
+
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = '0';
+        document.body.appendChild(iframe);
+
+        const doc = iframe.contentWindow.document;
+        doc.open();
+        doc.write(`
+            <html>
+            <head>
+                <title>Fee Receipt - ${student.name}</title>
+                <style>
+                    body {
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        padding: 30px;
+                        color: #1e293b;
+                        background: #ffffff;
+                        margin: 0;
+                    }
+                    .receipt-container {
+                        border: 1px solid #e2e8f0;
+                        padding: 30px;
+                        border-radius: 12px;
+                        max-width: 650px;
+                        margin: 0 auto;
+                        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+                        position: relative;
+                        overflow: hidden;
+                    }
+                    .receipt-container::before {
+                        content: "";
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 6px;
+                        background: linear-gradient(90deg, #6366f1, #06b6d4);
+                    }
+                    .header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: flex-start;
+                        border-bottom: 2px dashed #e2e8f0;
+                        padding-bottom: 20px;
+                        margin-bottom: 25px;
+                    }
+                    .brand-details h1 {
+                        margin: 0 0 4px 0;
+                        color: #4f46e5;
+                        font-size: 24px;
+                        font-weight: 700;
+                        letter-spacing: -0.5px;
+                    }
+                    .brand-details p {
+                        margin: 2px 0;
+                        color: #64748b;
+                        font-size: 13px;
+                    }
+                    .receipt-meta {
+                        text-align: right;
+                    }
+                    .receipt-meta h2 {
+                        margin: 0 0 6px 0;
+                        color: #1e293b;
+                        font-size: 18px;
+                        font-weight: 600;
+                    }
+                    .receipt-meta p {
+                        margin: 2px 0;
+                        color: #64748b;
+                        font-size: 12px;
+                    }
+                    .details-grid {
+                        display: grid;
+                        grid-template-columns: repeat(2, 1fr);
+                        gap: 16px;
+                        margin-bottom: 25px;
+                        background: #f8fafc;
+                        padding: 15px;
+                        border-radius: 8px;
+                    }
+                    .detail-item {
+                        font-size: 13.5px;
+                        color: #334155;
+                    }
+                    .detail-item strong {
+                        color: #64748b;
+                        font-weight: 500;
+                        display: inline-block;
+                        width: 110px;
+                    }
+                    .table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-bottom: 25px;
+                    }
+                    .table th, .table td {
+                        padding: 12px 14px;
+                        text-align: left;
+                        font-size: 13.5px;
+                        border-bottom: 1px solid #e2e8f0;
+                    }
+                    .table th {
+                        background-color: #f1f5f9;
+                        color: #475569;
+                        font-weight: 600;
+                    }
+                    .summary {
+                        margin-left: auto;
+                        width: 250px;
+                        margin-bottom: 30px;
+                    }
+                    .summary-row {
+                        display: flex;
+                        justify-content: space-between;
+                        padding: 6px 0;
+                        font-size: 13.5px;
+                        color: #475569;
+                    }
+                    .summary-row.total {
+                        font-weight: 700;
+                        font-size: 16px;
+                        color: #4f46e5;
+                        border-top: 1px solid #e2e8f0;
+                        padding-top: 10px;
+                        margin-top: 4px;
+                    }
+                    .bottom-row {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: flex-end;
+                        margin-top: 10px;
+                    }
+                    .stamp {
+                        border: 2px dashed #10b981;
+                        color: #10b981;
+                        display: inline-block;
+                        padding: 6px 14px;
+                        font-weight: 700;
+                        font-size: 14px;
+                        text-transform: uppercase;
+                        border-radius: 6px;
+                        transform: rotate(-3deg);
+                        background: rgba(16, 185, 129, 0.04);
+                    }
+                    .stamp.partial {
+                        border-color: #f59e0b;
+                        color: #f59e0b;
+                        background: rgba(245, 158, 11, 0.04);
+                    }
+                    .signature-area {
+                        text-align: right;
+                        font-size: 13px;
+                        color: #475569;
+                    }
+                    .signature-line {
+                        border-top: 1px solid #94a3b8;
+                        width: 160px;
+                        margin-bottom: 6px;
+                        display: inline-block;
+                    }
+                    .footer {
+                        text-align: center;
+                        margin-top: 35px;
+                        font-size: 11.5px;
+                        color: #94a3b8;
+                        border-top: 1px solid #f1f5f9;
+                        padding-top: 15px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="receipt-container">
+                    <div class="header">
+                        <div class="brand-details">
+                            <h1>${branding.name.toUpperCase()}</h1>
+                            <p>${branding.tagline}</p>
+                            <p>${branding.address}</p>
+                            <p>Email: ${branding.email} | Phone: ${branding.phone}</p>
+                        </div>
+                        <div class="receipt-meta">
+                            <h2>FEE RECEIPT</h2>
+                            <p><strong>Receipt No:</strong> ${receiptNo}</p>
+                            <p><strong>Date:</strong> ${receiptDate}</p>
+                        </div>
+                    </div>
+
+                    <div class="details-grid">
+                        <div class="detail-item"><strong>Enrollment ID:</strong> ${student.id || 'N/A'}</div>
+                        <div class="detail-item"><strong>Student Name:</strong> ${student.name}</div>
+                        <div class="detail-item"><strong>Mobile No:</strong> ${student.mobile || '-'}</div>
+                        <div class="detail-item"><strong>Branch:</strong> ${student.branch}</div>
+                        <div class="detail-item"><strong>Due Date:</strong> ${dueDateDisplay}</div>
+                        <div class="detail-item" style="grid-column: span 2;"><strong>Remarks:</strong> ${student.remarks || '-'}</div>
+                    </div>
+
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th style="text-align: right;">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <strong>Course Enrollment:</strong> ${student.course}
+                                    <div style="font-size: 11.5px; color: #64748b; margin-top: 4px;">
+                                        Fee Types: ${student.feeType ? student.feeType.join(', ') : 'Registration Fee'}
+                                    </div>
+                                </td>
+                                <td style="text-align: right; font-weight: 500;">₹${Number(student.courseFee).toLocaleString('en-IN')}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="summary">
+                        <div class="summary-row">
+                            <span>Subtotal Fee</span>
+                            <span>₹${Number(student.courseFee).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Amount Received</span>
+                            <span>₹${Number(student.amountReceived).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span>Balance Due</span>
+                            <span>₹${dueAmt.toLocaleString('en-IN')}</span>
+                        </div>
+                    </div>
+
+                    <div class="bottom-row">
+                        <div>
+                            ${dueAmt === 0 
+                                ? '<div class="stamp">Fully Paid</div>' 
+                                : '<div class="stamp partial">Partial Payment</div>'}
+                        </div>
+                        <div class="signature-area">
+                            <div class="signature-line"></div>
+                            <div>Authorized Signatory</div>
+                        </div>
+                    </div>
+
+                    <div class="footer">
+                        Thank you for your enrollment. This is a computer-generated fee receipt.
+                    </div>
+                </div>
+                <script>
+                    window.onload = function() {
+                        window.print();
+                        setTimeout(function() {
+                            window.parent.document.body.removeChild(window.frameElement);
+                        }, 1000);
+                    }
+                <\/script>
+            </body>
+            </html>
+        `);
+        doc.close();
+    };
+
+    AuraDOM.renderDashboardReport = function(filteredStudents) {
+        const listBody = $("#report-students-body");
+        if (!listBody) return;
+
+        listBody.innerHTML = "";
+
+        // 1. Recalculate metrics on the filtered dataset
+        let totalExpected = 0;
+        let totalCollected = 0;
+        let totalDues = 0;
+
+        if (!filteredStudents || filteredStudents.length === 0) {
+            listBody.innerHTML = `
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-4">No matching student details found for current filters.</td>
+                </tr>
+            `;
+        } else {
+            filteredStudents.forEach(s => {
+                const dueAmt = Math.max(0, s.courseFee - s.amountReceived);
+                totalExpected += s.courseFee || 0;
+                totalCollected += s.amountReceived || 0;
+                totalDues += dueAmt;
+
+                const tr = document.createElement("tr");
+                const dueDisplay = dueAmt > 0 
+                    ? `<strong class="text-rose">₹${dueAmt.toLocaleString('en-IN')}</strong>` 
+                    : `<span class="text-success" style="font-weight:600;">Paid</span>`;
+
+                tr.innerHTML = `
+                    <td><strong>${s.id}</strong></td>
+                    <td>${s.name}</td>
+                    <td>${s.mobile || '-'}</td>
+                    <td><span class="node-dept-pill" style="white-space: normal; text-align: left;">${s.course}</span></td>
+                    <td>₹${s.courseFee.toLocaleString('en-IN')}</td>
+                    <td>₹${s.amountReceived.toLocaleString('en-IN')}</td>
+                    <td>${dueDisplay}</td>
+                    <td>${s.dueDate ? new Date(s.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}</td>
+                    <td><span style="font-size: 12px; color: var(--text-secondary); max-width: 150px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${s.remarks || ''}">${s.remarks || '-'}</span></td>
+                `;
+                listBody.appendChild(tr);
+            });
+        }
+
+        // Update count badge
+        const countBadge = $("#report-total-count");
+        if (countBadge) {
+            countBadge.textContent = `${filteredStudents ? filteredStudents.length : 0} Filtered`;
+        }
+
+        // Update metrics
+        const totalExpectedSpan = $("#report-metric-total");
+        const totalCollectedSpan = $("#report-metric-received");
+        const totalDuesSpan = $("#report-metric-due");
+
+        if (totalExpectedSpan) totalExpectedSpan.textContent = `₹${totalExpected.toLocaleString('en-IN')}`;
+        if (totalCollectedSpan) totalCollectedSpan.textContent = `₹${totalCollected.toLocaleString('en-IN')}`;
+        if (totalDuesSpan) totalDuesSpan.textContent = `₹${totalDues.toLocaleString('en-IN')}`;
     };
 
 })();

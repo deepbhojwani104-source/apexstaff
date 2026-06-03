@@ -564,23 +564,29 @@
             {
                 id: "STU-1001",
                 name: "Rohan Verma",
+                mobile: "9876543210",
                 course: "Python",
                 branch: "Beawar",
                 courseFee: 8000,
                 amountReceived: 5000,
+                dueAmount: 3000,
                 dueDate: "2026-06-15",
                 feeType: ["New Registration", "Registration Fee"],
+                remarks: "Wants to clear remaining dues next week.",
                 lastUpdated: Date.now()
             },
             {
                 id: "STU-1002",
                 name: "Anjali Gupta",
+                mobile: "9988776655",
                 course: "AI",
                 branch: "Beawar",
                 courseFee: 12000,
                 amountReceived: 12000,
+                dueAmount: 0,
                 dueDate: "",
                 feeType: ["New Registration"],
+                remarks: "Paid full fees up front.",
                 lastUpdated: Date.now()
             }
         ];
@@ -853,6 +859,8 @@
                     branding: state.branding,
                     staff: state.staff,
                     attendance: state.attendance,
+                    students: state.students,
+                    courses: state.courses,
                     options: {
                         syncStaff: false,
                         syncAttendance: true
@@ -1044,10 +1052,20 @@
                 if (type === "staff" && data.staff) {
                     pulledStaff = data.staff;
                     pulledPayroll = data.payroll || {};
-                    pulledStudents = data.students || [];
-                    pulledCourses = data.courses || [];
+                    if (data.students && (pulledStudents.length === 0 || data.students.length > 0)) {
+                        pulledStudents = data.students;
+                    }
+                    if (data.courses && (pulledCourses.length === 0 || data.courses.length > 0)) {
+                        pulledCourses = data.courses;
+                    }
                 } else if (type === "attendance" && data.attendance) {
                     pulledAttendance = data.attendance;
+                    if (data.students && (pulledStudents.length === 0 || data.students.length > 0)) {
+                        pulledStudents = data.students;
+                    }
+                    if (data.courses && (pulledCourses.length === 0 || data.courses.length > 0)) {
+                        pulledCourses = data.courses;
+                    }
                 }
             }
 
@@ -1177,24 +1195,26 @@
       }
     }
 
-    // 4. Read Enrolled Students from Students tab
-    var studentsSheet = ss.getSheetByName("Students");
+    // 4. Read Enrolled Students from student details tab
+    var studentsSheet = ss.getSheetByName("student details");
     if (studentsSheet) {
       var lastRow = studentsSheet.getLastRow();
       if (lastRow > 1) {
-        var studentRows = studentsSheet.getRange(2, 1, lastRow - 1, 9).getValues();
+        var studentRows = studentsSheet.getRange(2, 1, lastRow - 1, 11).getValues();
         studentRows.forEach(function(row) {
           if (row[0]) {
             result.students.push({
               id: String(row[0]),
               name: String(row[1]),
-              course: String(row[2]),
-              branch: String(row[3]),
+              mobile: String(row[2] || ""),
+              course: String(row[3]),
               courseFee: Number(row[4]),
               amountReceived: Number(row[5]),
               dueDate: row[6] instanceof Date ? Utilities.formatDate(row[6], Session.getScriptTimeZone(), "yyyy-MM-dd") : String(row[6] || ""),
-              feeType: String(row[7]).split(",").map(function(t) { return t.trim(); }),
-              lastUpdated: row[8] ? Number(row[8]) : Date.now()
+              dueAmount: Number(row[7]),
+              feeType: String(row[8]).split(",").map(function(t) { return t.trim(); }),
+              remarks: String(row[9] || ""),
+              lastUpdated: row[10] ? Number(row[10]) : Date.now()
             });
           }
         });
@@ -1301,62 +1321,65 @@ function doPost(e) {
         });
         payrollSheet.autoResizeColumns(1, 10);
       }
-
-      // 1c. Write Enrolled Students directly into Students tab
-      if (data.students) {
-        var studentsSheet = ss.getSheetByName("Students");
-        if (!studentsSheet) {
-          studentsSheet = ss.insertSheet("Students");
-          studentsSheet.appendRow([
-            "Student ID", "Name", "Course", "Branch", "Course Fee", 
-            "Amount Received", "Due Date", "Fee Type", "Last Updated"
-          ]);
-          studentsSheet.getRange("A1:I1").setFontWeight("bold");
-        }
-        var lastRowS = studentsSheet.getLastRow();
-        if (lastRowS > 1) {
-          studentsSheet.getRange(2, 1, lastRowS - 1, 9).clearContent();
-        }
-        data.students.forEach(function(s) {
-          studentsSheet.appendRow([
-            s.id,
-            s.name,
-            s.course,
-            s.branch,
-            s.courseFee,
-            s.amountReceived,
-            s.dueDate || "",
-            s.feeType ? s.feeType.join(", ") : "",
-            s.lastUpdated || Date.now()
-          ]);
-        });
-        studentsSheet.autoResizeColumns(1, 9);
-      }
-
-      // 1d. Write Courses directly into Courses tab
-      if (data.courses) {
-        var coursesSheet = ss.getSheetByName("Courses");
-        if (!coursesSheet) {
-          coursesSheet = ss.insertSheet("Courses");
-          coursesSheet.appendRow([
-            "Course Name", "Price", "Last Updated"
-          ]);
-          coursesSheet.getRange("A1:C1").setFontWeight("bold");
-        }
-        var lastRowC = coursesSheet.getLastRow();
-        if (lastRowC > 1) {
-          coursesSheet.getRange(2, 1, lastRowC - 1, 3).clearContent();
-        }
-        data.courses.forEach(function(c) {
-          coursesSheet.appendRow([
-            c.name,
-            c.price,
-            c.lastUpdated || Date.now()
-          ]);
-        });
-        coursesSheet.autoResizeColumns(1, 3);
-      }
     }
+
+    // 1c. Write Enrolled Students directly into student details tab
+    if (data.students) {
+      var studentsSheet = ss.getSheetByName("student details");
+      if (!studentsSheet) {
+        studentsSheet = ss.insertSheet("student details");
+        studentsSheet.appendRow([
+          "enrollment id", "name", "mobile no.", "courses", "course fees", 
+          "amount received", "due date", "due amount", "fees type", "remarks", "lastUpdated"
+        ]);
+        studentsSheet.getRange("A1:K1").setFontWeight("bold");
+      }
+      var lastRowS = studentsSheet.getLastRow();
+      if (lastRowS > 1) {
+        studentsSheet.getRange(2, 1, lastRowS - 1, 11).clearContent();
+      }
+      data.students.forEach(function(s) {
+        studentsSheet.appendRow([
+          s.id,
+          s.name,
+          s.mobile || "",
+          s.course,
+          s.courseFee,
+          s.amountReceived,
+          s.dueDate || "",
+          s.dueAmount || 0,
+          s.feeType ? s.feeType.join(", ") : "",
+          s.remarks || "",
+          s.lastUpdated || Date.now()
+        ]);
+      });
+      studentsSheet.autoResizeColumns(1, 11);
+    }
+
+    // 1d. Write Courses directly into Courses tab
+    if (data.courses) {
+      var coursesSheet = ss.getSheetByName("Courses");
+      if (!coursesSheet) {
+        coursesSheet = ss.insertSheet("Courses");
+        coursesSheet.appendRow([
+          "Course Name", "Price", "Last Updated"
+        ]);
+        coursesSheet.getRange("A1:C1").setFontWeight("bold");
+      }
+      var lastRowC = coursesSheet.getLastRow();
+      if (lastRowC > 1) {
+        coursesSheet.getRange(2, 1, lastRowC - 1, 3).clearContent();
+      }
+      data.courses.forEach(function(c) {
+        coursesSheet.appendRow([
+          c.name,
+          c.price,
+          c.lastUpdated || Date.now()
+        ]);
+      });
+      coursesSheet.autoResizeColumns(1, 3);
+    }
+  }
     
     // 2. Save Daily Attendance records to the Attendance tab
     if (syncAttendance) {
