@@ -10,11 +10,11 @@
 
     // Default branding profile
     const DEFAULT_BRANDING = {
-        name: "Apex Coaching Institute",
+        name: "Samyak Computer Classes",
         tagline: "Unlocking Academic Excellence",
-        email: "contact@apexinstitute.edu",
-        phone: "+91 98765 01234",
-        address: "A-12, Metro Plaza, Sector 15, Noida, UP - 201301"
+        email: "contact@samyak.edu",
+        phone: "9876543210",
+        address: "Above Pappu Restaurant, Chang Gate, Beawar"
     };
 
     // System State Container
@@ -43,6 +43,12 @@
             const rawData = localStorage.getItem(STORAGE_KEY);
             if (rawData) {
                 const parsed = JSON.parse(rawData);
+                
+                // Migrate branding if it's the old default Apex Coaching Institute
+                if (parsed.branding && (parsed.branding.name === "Apex Coaching Institute" || parsed.branding.name === "Apex Staffing")) {
+                    parsed.branding = { ...DEFAULT_BRANDING };
+                }
+                
                 state = {
                     staff: parsed.staff || [],
                     attendance: parsed.attendance || {},

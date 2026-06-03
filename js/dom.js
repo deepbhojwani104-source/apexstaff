@@ -948,11 +948,11 @@
 
     AuraDOM.printFeeReceipt = function(student) {
         const branding = window.AuraStore ? window.AuraStore.getBranding() : {
-            name: "Apex Coaching Institute",
+            name: "Samyak Computer Classes",
             tagline: "Unlocking Academic Excellence",
-            email: "contact@apexinstitute.edu",
-            phone: "+91 98765 01234",
-            address: "A-12, Metro Plaza, Sector 15, Noida, UP - 201301"
+            email: "contact@samyak.edu",
+            phone: "9876543210",
+            address: "Above Pappu Restaurant, Chang Gate, Beawar"
         };
 
         const dueAmt = Math.max(0, student.courseFee - student.amountReceived);
