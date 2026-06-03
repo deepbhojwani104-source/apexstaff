@@ -637,20 +637,31 @@
     AuraStore.postPayload = function(url, payload, callback) {
         fetch(url, {
             method: "POST",
-            mode: "no-cors",
             headers: {
                 "Content-Type": "text/plain;charset=utf-8"
             },
             body: JSON.stringify(payload)
         })
-        .then(() => {
-            AuraStore.logActivity("Successfully pushed data to Web App URL.", "success");
-            if (callback) callback(null);
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(result => {
+            if (result && result.success) {
+                AuraStore.logActivity("Successfully pushed data to Google Sheet.", "success");
+                if (callback) callback(null);
+            } else {
+                const errMsg = result ? result.error || result.message : "Unknown error";
+                AuraStore.logActivity(`Google Sheet Sync Error: ${errMsg}`, "danger");
+                if (callback) callback(errMsg);
+            }
         })
         .catch(error => {
             console.error("Sync URL error:", error);
-            AuraStore.logActivity("Network error communicating with sync URL.", "danger");
-            if (callback) callback("Connection failed.");
+            AuraStore.logActivity(`Sync Failed: ${error.message}. Ensure your URL is a deployed Web App URL and NOT a spreadsheet link.`, "danger");
+            if (callback) callback(error.message);
         });
     };
 
@@ -751,9 +762,9 @@ function doPost(e) {
       staffSheet.autoResizeColumns(1, 8);
     }
     
-    // 2. Save Daily Attendance records to the first tab (Sheet1) of your Attendance spreadsheet
+    // 2. Save Daily Attendance records to the Attendance tab of your Attendance spreadsheet
     if (syncAttendance) {
-      var attendSheet = ss.getSheetByName("Sheet1") || ss.getSheets()[0];
+      var attendSheet = ss.getSheetByName("Attendance") || ss.getSheetByName("Sheet1") || ss.getSheets()[0];
       
       // Clear all rows below the headers (row 2 onwards)
       var lastRow = attendSheet.getLastRow();

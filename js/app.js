@@ -663,8 +663,16 @@ document.addEventListener("DOMContentLoaded", function() {
             AuraDOM.showToast("Please enter your Faculty Directory Sync URL first.", "error");
             return;
         }
+        if (syncStaff && urlStaff.includes("docs.google.com/spreadsheets")) {
+            AuraDOM.showToast("Faculty Sync URL is a spreadsheet link! Please paste the Apps Script Web App URL (ending in /exec) instead.", "error");
+            return;
+        }
         if (syncAttendance && urlAttendance === "") {
             AuraDOM.showToast("Please enter your Attendance Log Sync URL first.", "error");
+            return;
+        }
+        if (syncAttendance && urlAttendance.includes("docs.google.com/spreadsheets")) {
+            AuraDOM.showToast("Attendance Sync URL is a spreadsheet link! Please paste the Apps Script Web App URL (ending in /exec) instead.", "error");
             return;
         }
 
