@@ -352,6 +352,11 @@
         const tbody = $("#payroll-table-body");
         tbody.innerHTML = "";
 
+        const selectAll = $("#payroll-select-all");
+        if (selectAll) {
+            selectAll.checked = true;
+        }
+
         const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
         const payrollData = state.payroll[monthKey] || {};
 
@@ -362,7 +367,7 @@
         if (activeStaff.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="8" class="text-center py-4 text-muted">
+                    <td colspan="9" class="text-center py-4 text-muted">
                         No active staff members to process.
                     </td>
                 </tr>
@@ -381,6 +386,9 @@
                 const initials = emp.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
                 const tr = document.createElement("tr");
                 tr.innerHTML = `
+                    <td style="text-align: center;">
+                        <input type="checkbox" class="payroll-row-select" data-id="${emp.id}" checked style="cursor: pointer; width: auto; height: auto; margin: 0;">
+                    </td>
                     <td>
                         <div class="table-profile-cell">
                             <div class="table-profile-avatar">${initials}</div>
@@ -407,6 +415,9 @@
 
             const tr = document.createElement("tr");
             tr.innerHTML = `
+                <td style="text-align: center;">
+                    <input type="checkbox" class="payroll-row-select" data-id="${emp.id}" checked style="cursor: pointer; width: auto; height: auto; margin: 0;">
+                </td>
                 <td>
                     <div class="table-profile-cell">
                         <div class="table-profile-avatar">${initials}</div>

@@ -457,9 +457,16 @@ document.addEventListener("DOMContentLoaded", function() {
         currentPayrollMonth = Number($("#payroll-month").value);
         currentPayrollYear = Number($("#payroll-year").value);
         
-        AuraStore.calculatePayrollForMonth(currentPayrollYear, currentPayrollMonth);
+        const selectedCheckboxes = $$(".payroll-row-select:checked");
+        if (selectedCheckboxes.length === 0) {
+            AuraDOM.showToast("Please select at least one staff member to calculate.", "error");
+            return;
+        }
+        const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.dataset.id);
+        
+        AuraStore.calculatePayrollForMonth(currentPayrollYear, currentPayrollMonth, selectedIds);
         refreshPayroll();
-        AuraDOM.showToast("Payroll calculations refreshed.", "success");
+        AuraDOM.showToast(`Payroll calculations refreshed for ${selectedIds.length} staff member(s).`, "success");
     });
 
     // Shortcut click from Dashboard tile
@@ -469,15 +476,37 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Bulk action approve all
     $("#btn-bulk-approve-payroll").addEventListener("click", () => {
-        const state = AuraStore.getState();
-        const activeStaff = state.staff.filter(s => s.status === "Active");
-        if (activeStaff.length === 0) return;
+        const selectedCheckboxes = $$(".payroll-row-select:checked");
+        if (selectedCheckboxes.length === 0) {
+            AuraDOM.showToast("Please select at least one staff member to approve.", "error");
+            return;
+        }
+        const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.dataset.id);
 
-        if (confirm("Are you sure you want to mark ALL calculated salary payouts as PAID for this month?")) {
-            AuraStore.approveAllPayroll(currentPayrollYear, currentPayrollMonth);
+        if (confirm(`Are you sure you want to mark the selected (${selectedIds.length}) salary payouts as PAID for this month?`)) {
+            AuraStore.approveAllPayroll(currentPayrollYear, currentPayrollMonth, selectedIds);
             refreshPayroll();
-            AuraDOM.showToast("All registers finalized as Paid.", "success");
+            AuraDOM.showToast("Selected payroll registers finalized as Paid.", "success");
             triggerAutoSync();
+        }
+    });
+
+    // Select All and Row Selection Checkboxes logic using Event Delegation
+    document.addEventListener("change", function(e) {
+        if (e.target && e.target.id === "payroll-select-all") {
+            const checked = e.target.checked;
+            $$(".payroll-row-select").forEach(cb => {
+                cb.checked = checked;
+            });
+        }
+        
+        if (e.target && e.target.classList.contains("payroll-row-select")) {
+            const allCbs = $$(".payroll-row-select");
+            const checkedCbs = $$(".payroll-row-select:checked");
+            const selectAll = $("#payroll-select-all");
+            if (selectAll) {
+                selectAll.checked = (allCbs.length === checkedCbs.length);
+            }
         }
     });
 

@@ -228,7 +228,7 @@
     };
 
     // Calculates and processes payroll for a specific month YYYY-MM
-    AuraStore.calculatePayrollForMonth = function(year, month) {
+    AuraStore.calculatePayrollForMonth = function(year, month, selectedIds) {
         const key = `${year}-${String(month + 1).padStart(2, '0')}`;
         
         // Initialize payroll object for this month if missing
@@ -240,6 +240,9 @@
         const activeStaff = state.staff.filter(s => s.status === "Active");
 
         activeStaff.forEach(employee => {
+            if (selectedIds && !selectedIds.includes(employee.id)) {
+                return;
+            }
             const attendStats = AuraStore.calculateStaffAttendanceStats(employee.id, year, month);
             
             let absentDeductions = 0;
@@ -310,16 +313,20 @@
         AuraStore.logActivity(`Updated salary adjustments for ${AuraStore.getStaffById(staffId).name} (${staffId}).`, "success");
     };
 
-    AuraStore.approveAllPayroll = function(year, month) {
+    AuraStore.approveAllPayroll = function(year, month, selectedIds) {
         const key = `${year}-${String(month + 1).padStart(2, '0')}`;
         if (!state.payroll[key]) return;
 
-        Object.keys(state.payroll[key]).forEach(staffId => {
-            state.payroll[key][staffId].status = "Paid";
+        const idsToApprove = selectedIds || Object.keys(state.payroll[key]);
+
+        idsToApprove.forEach(staffId => {
+            if (state.payroll[key][staffId]) {
+                state.payroll[key][staffId].status = "Paid";
+            }
         });
 
         AuraStore.saveState();
-        AuraStore.logActivity(`Approved and finalized all payroll registers for ${key}.`, "success");
+        AuraStore.logActivity(`Approved and finalized payroll registers for ${key}.`, "success");
     };
 
     // 7. Backup Export & Import Tools
