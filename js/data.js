@@ -876,13 +876,25 @@
         function mergeData() {
             // 1. Merge Staff list
             if (pulledStaff && pulledStaff.length > 0) {
+                // Deduplicate pulled staff by id, keeping the one with the latest lastUpdated
+                const dedupedPulledStaffMap = {};
+                pulledStaff.forEach(s => {
+                    if (s && s.id) {
+                        const existing = dedupedPulledStaffMap[s.id];
+                        if (!existing || (s.lastUpdated || 0) > (existing.lastUpdated || 0)) {
+                            dedupedPulledStaffMap[s.id] = s;
+                        }
+                    }
+                });
+                const cleanPulledStaff = Object.values(dedupedPulledStaffMap);
+
                 const localStaffMap = {};
                 state.staff.forEach(s => localStaffMap[s.id] = s);
 
                 const mergedStaff = [];
                 const processedLocalIds = new Set();
 
-                pulledStaff.forEach(pulled => {
+                cleanPulledStaff.forEach(pulled => {
                     const local = localStaffMap[pulled.id];
                     if (local) {
                         const localTime = local.lastUpdated || 0;
@@ -904,6 +916,7 @@
                 state.staff.forEach(s => {
                     if (!processedLocalIds.has(s.id)) {
                         mergedStaff.push(s);
+                        processedLocalIds.add(s.id);
                     }
                 });
 
@@ -969,6 +982,18 @@
 
             // 4. Merge Students
             if (pulledStudents && pulledStudents.length > 0) {
+                // Deduplicate pulled students by id, keeping the one with the latest lastUpdated
+                const dedupedPulledStudentsMap = {};
+                pulledStudents.forEach(s => {
+                    if (s && s.id) {
+                        const existing = dedupedPulledStudentsMap[s.id];
+                        if (!existing || (s.lastUpdated || 0) > (existing.lastUpdated || 0)) {
+                            dedupedPulledStudentsMap[s.id] = s;
+                        }
+                    }
+                });
+                const cleanPulledStudents = Object.values(dedupedPulledStudentsMap);
+
                 const localStudentsMap = {};
                 if (!state.students) state.students = [];
                 state.students.forEach(s => localStudentsMap[s.id] = s);
@@ -976,7 +1001,7 @@
                 const mergedStudents = [];
                 const processedLocalIds = new Set();
 
-                pulledStudents.forEach(pulled => {
+                cleanPulledStudents.forEach(pulled => {
                     const local = localStudentsMap[pulled.id];
                     if (local) {
                         const localTime = local.lastUpdated || 0;
@@ -998,6 +1023,7 @@
                 state.students.forEach(s => {
                     if (!processedLocalIds.has(s.id)) {
                         mergedStudents.push(s);
+                        processedLocalIds.add(s.id);
                     }
                 });
 
@@ -1006,6 +1032,19 @@
 
             // 5. Merge Courses
             if (pulledCourses && pulledCourses.length > 0) {
+                // Deduplicate pulled courses by name, keeping the one with the latest lastUpdated
+                const dedupedPulledCoursesMap = {};
+                pulledCourses.forEach(c => {
+                    if (c && c.name) {
+                        const nameKey = c.name.toLowerCase();
+                        const existing = dedupedPulledCoursesMap[nameKey];
+                        if (!existing || (c.lastUpdated || 0) > (existing.lastUpdated || 0)) {
+                            dedupedPulledCoursesMap[nameKey] = c;
+                        }
+                    }
+                });
+                const cleanPulledCourses = Object.values(dedupedPulledCoursesMap);
+
                 const localCoursesMap = {};
                 if (!state.courses) state.courses = [];
                 state.courses.forEach(c => localCoursesMap[c.name.toLowerCase()] = c);
@@ -1013,7 +1052,7 @@
                 const mergedCourses = [];
                 const processedLocalNames = new Set();
 
-                pulledCourses.forEach(pulled => {
+                cleanPulledCourses.forEach(pulled => {
                     const nameKey = pulled.name.toLowerCase();
                     const local = localCoursesMap[nameKey];
                     if (local) {
@@ -1037,6 +1076,7 @@
                     const nameKey = c.name.toLowerCase();
                     if (!processedLocalNames.has(nameKey)) {
                         mergedCourses.push(c);
+                        processedLocalNames.add(nameKey);
                     }
                 });
 
@@ -1250,9 +1290,18 @@
 }
 
 function doPost(e) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  
+  var lock = LockService.getScriptLock();
   try {
+    // Wait for lock for up to 30 seconds
+    lock.waitLock(30000);
+  } catch(lockErr) {
+    var result = { success: false, error: "Could not acquire script lock: " + lockErr.toString() };
+    return ContentService.createTextOutput(JSON.stringify(result))
+                         .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
     var data = JSON.parse(e.postData.contents);
     var syncStaff = !data.options || data.options.syncStaff;
     var syncAttendance = !data.options || data.options.syncAttendance;
@@ -1429,6 +1478,8 @@ function doPost(e) {
     var result = { success: false, error: err.toString() };
     return ContentService.createTextOutput(JSON.stringify(result))
                          .setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
   }
 }`;
 
