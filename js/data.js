@@ -671,58 +671,249 @@
         const urlStaff = AuraStore.getSheetsUrlStaff();
         const urlAttendance = AuraStore.getSheetsUrlAttendance();
 
-        let pending = 0;
-        let errors = [];
+        let pendingPulls = 0;
+        let pullErrors = [];
+        let pulledStaff = [];
+        let pulledAttendance = {};
 
-        if (syncStaff && urlStaff) pending++;
-        if (syncAttendance && urlAttendance) pending++;
+        if (syncStaff && urlStaff) pendingPulls++;
+        if (syncAttendance && urlAttendance) pendingPulls++;
 
-        if (pending === 0) {
+        if (pendingPulls === 0) {
             if (callback) callback("No active sync URLs configured or selected in options.", false);
             return;
         }
 
-        function done(err) {
-            if (err) errors.push(err);
-            pending--;
-            if (pending === 0) {
-                if (errors.length > 0) {
-                    if (callback) callback(errors.join(", "), false);
-                } else {
-                    if (callback) callback(null, true);
+        // Helper to perform POST push after pulling and merging
+        function pushMergedState() {
+            let pendingPushes = 0;
+            let pushErrors = [];
+
+            if (syncStaff && urlStaff) pendingPushes++;
+            if (syncAttendance && urlAttendance) pendingPushes++;
+
+            function pushDone(err) {
+                if (err) pushErrors.push(err);
+                pendingPushes--;
+                if (pendingPushes === 0) {
+                    if (pushErrors.length > 0) {
+                        if (callback) callback("Push failed: " + pushErrors.join(", "), false);
+                    } else {
+                        if (callback) callback(null, true);
+                    }
                 }
+            }
+
+            if (syncStaff && urlStaff) {
+                const payload = {
+                    branding: state.branding,
+                    staff: state.staff,
+                    options: {
+                        syncStaff: true,
+                        syncAttendance: false
+                    }
+                };
+                AuraStore.postPayload(urlStaff, payload, pushDone);
+            }
+
+            if (syncAttendance && urlAttendance) {
+                const payload = {
+                    branding: state.branding,
+                    staff: state.staff,
+                    attendance: state.attendance,
+                    options: {
+                        syncStaff: false,
+                        syncAttendance: true
+                    }
+                };
+                AuraStore.postPayload(urlAttendance, payload, pushDone);
+            }
+        }
+
+        // Helper to merge pulled data into local state
+        function mergeData() {
+            // 1. Merge Staff list
+            if (syncStaff && pulledStaff.length > 0) {
+                const localStaffMap = {};
+                state.staff.forEach(s => localStaffMap[s.id] = s);
+
+                const mergedStaff = [];
+                const processedLocalIds = new Set();
+
+                pulledStaff.forEach(pulled => {
+                    const local = localStaffMap[pulled.id];
+                    if (local) {
+                        // Merge: overwrite local values with Sheets, preserving local fields if sheet has them blank
+                        const merged = {
+                            ...local,
+                            ...pulled,
+                            email: pulled.email || local.email || "",
+                            phone: pulled.phone || local.phone || "",
+                            gender: pulled.gender || local.gender || "Male",
+                            salaryType: pulled.salaryType || local.salaryType || "Standard",
+                            bankName: pulled.bankName || local.bankName || "",
+                            bankAccount: pulled.bankAccount || local.bankAccount || "",
+                            bankIfsc: pulled.bankIfsc || local.bankIfsc || ""
+                        };
+                        mergedStaff.push(merged);
+                        processedLocalIds.add(pulled.id);
+                    } else {
+                        // Staff member exists on Sheet but not locally (added from another device)
+                        mergedStaff.push(pulled);
+                    }
+                });
+
+                // Add local staff members that are not in Sheets yet (added locally)
+                state.staff.forEach(s => {
+                    if (!processedLocalIds.has(s.id)) {
+                        mergedStaff.push(s);
+                    }
+                });
+
+                state.staff = mergedStaff;
+            }
+
+            // 2. Merge Attendance Logs
+            if (syncAttendance && Object.keys(pulledAttendance).length > 0) {
+                Object.keys(pulledAttendance).forEach(dateStr => {
+                    if (!state.attendance[dateStr]) {
+                        // Date not present locally, add all records
+                        state.attendance[dateStr] = pulledAttendance[dateStr];
+                    } else {
+                        // Date present locally, merge records employee by employee
+                        const localRecords = state.attendance[dateStr];
+                        const pulledRecords = pulledAttendance[dateStr];
+                        
+                        Object.keys(pulledRecords).forEach(staffId => {
+                            if (!localRecords[staffId]) {
+                                // Record exists on sheet but not locally
+                                localRecords[staffId] = pulledRecords[staffId];
+                            } else {
+                                // Record exists in both, Sheets is source of truth (override)
+                                localRecords[staffId] = {
+                                    ...localRecords[staffId],
+                                    ...pulledRecords[staffId]
+                                };
+                            }
+                        });
+                    }
+                });
+            }
+
+            AuraStore.saveState();
+        }
+
+        // Start pulling
+        function pullDone(err, data, type) {
+            if (err) {
+                pullErrors.push(`${type}: ${err}`);
+            } else if (data) {
+                if (type === "staff" && data.staff) {
+                    pulledStaff = data.staff;
+                } else if (type === "attendance" && data.attendance) {
+                    pulledAttendance = data.attendance;
+                }
+            }
+
+            pendingPulls--;
+            if (pendingPulls === 0) {
+                // Merging phase (even if some pull errors occurred, we merge what succeeded and continue)
+                if (pullErrors.length > 0) {
+                    console.warn("Pull errors occurred during sync, merging partial data:", pullErrors);
+                }
+                
+                mergeData();
+                pushMergedState();
             }
         }
 
         if (syncStaff && urlStaff) {
-            const payload = {
-                branding: state.branding,
-                staff: state.staff,
-                options: {
-                    syncStaff: true,
-                    syncAttendance: false
-                }
-            };
-            AuraStore.postPayload(urlStaff, payload, done);
+            fetch(urlStaff)
+                .then(res => {
+                    if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
+                    return res.json();
+                })
+                .then(data => pullDone(null, data, "staff"))
+                .catch(err => pullDone(err.message, null, "staff"));
         }
 
         if (syncAttendance && urlAttendance) {
-            const payload = {
-                branding: state.branding,
-                staff: state.staff, // Needed by script to cross reference names
-                attendance: state.attendance,
-                options: {
-                    syncStaff: false,
-                    syncAttendance: true
-                }
-            };
-            AuraStore.postPayload(urlAttendance, payload, done);
+            fetch(urlAttendance)
+                .then(res => {
+                    if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
+                    return res.json();
+                })
+                .then(data => pullDone(null, data, "attendance"))
+                .catch(err => pullDone(err.message, null, "attendance"));
         }
     };
 
     // Copyable Google Apps Script Template
     AuraStore.GOOGLE_SCRIPT_TEMPLATE = `function doGet(e) {
-  var result = { success: true, status: "online", message: "AuraStaff Web API is active. Ready to sync database." };
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var result = { success: true, staff: [], attendance: {} };
+  
+  try {
+    // 1. Read Faculty details from Sheet1
+    var staffSheet = ss.getSheetByName("Sheet1") || ss.getSheets()[0];
+    if (staffSheet) {
+      var lastRow = staffSheet.getLastRow();
+      if (lastRow > 1) {
+        var staffRows = staffSheet.getRange(2, 1, lastRow - 1, 14).getValues();
+        staffRows.forEach(function(row) {
+          if (row[0]) {
+            result.staff.push({
+              id: String(row[0]),
+              name: String(row[1]),
+              joiningDate: row[2] instanceof Date ? Utilities.formatDate(row[2], Session.getScriptTimeZone(), "yyyy-MM-dd") : String(row[2]),
+              department: String(row[3]),
+              designation: String(row[4]),
+              baseSalary: Number(row[5]),
+              status: String(row[6]),
+              email: String(row[7] || ""),
+              phone: String(row[8] || ""),
+              gender: String(row[9] || "Male"),
+              salaryType: String(row[10] || "Standard"),
+              bankName: String(row[11] || ""),
+              bankAccount: String(row[12] || ""),
+              bankIfsc: String(row[13] || "")
+            });
+          }
+        });
+      }
+    }
+    
+    // 2. Read Attendance logs from Attendance tab
+    var attendSheet = ss.getSheetByName("Attendance") || ss.getSheetByName("Sheet1") || ss.getSheets()[0];
+    if (attendSheet) {
+      var lastRow = attendSheet.getLastRow();
+      if (lastRow > 1) {
+        var attendRows = attendSheet.getRange(2, 1, lastRow - 1, 6).getValues();
+        attendRows.forEach(function(row) {
+          if (row[0] && row[2]) {
+            var staffId = String(row[0]);
+            var dateStr = row[2] instanceof Date ? Utilities.formatDate(row[2], Session.getScriptTimeZone(), "yyyy-MM-dd") : String(row[2]);
+            var checkIn = String(row[3] || "");
+            var status = String(row[4]);
+            var remarks = String(row[5] || "");
+            
+            if (!result.attendance[dateStr]) {
+              result.attendance[dateStr] = {};
+            }
+            result.attendance[dateStr][staffId] = {
+              status: status,
+              checkIn: checkIn,
+              remarks: remarks
+            };
+          }
+        });
+      }
+    }
+  } catch(err) {
+    result.success = false;
+    result.error = err.toString();
+  }
+  
   return ContentService.createTextOutput(JSON.stringify(result))
                        .setMimeType(ContentService.MimeType.JSON);
 }
@@ -746,7 +937,7 @@ function doPost(e) {
         staffSheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
       }
       
-      // Map staff details directly into your columns A to G
+      // Map staff details directly into your columns A to N
       data.staff.forEach(function(s) {
         staffSheet.appendRow([
           s.id,                  // Column A: faculty id
@@ -755,11 +946,18 @@ function doPost(e) {
           s.department,          // Column D: Department
           s.designation,         // Column E: Subject/Role
           s.baseSalary,          // Column F: salary
-          s.status               // Column G: employment status
+          s.status,              // Column G: employment status
+          s.email || "",         // Column H: Email Address
+          s.phone || "",         // Column I: Phone Number
+          s.gender || "Male",    // Column J: Gender
+          s.salaryType || "Standard", // Column K: Salary Type
+          s.bankName || "",      // Column L: Bank Name
+          s.bankAccount || "",   // Column M: Bank Account
+          s.bankIfsc || ""       // Column N: Bank IFSC
         ]);
       });
-      staffSheet.getRange("A1:G1").setFontWeight("bold");
-      staffSheet.autoResizeColumns(1, 8);
+      staffSheet.getRange("A1:N1").setFontWeight("bold");
+      staffSheet.autoResizeColumns(1, 14);
     }
     
     // 2. Save Daily Attendance records to the Attendance tab of your Attendance spreadsheet
