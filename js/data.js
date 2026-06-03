@@ -24,8 +24,8 @@
         payroll: {},    // 'YYYY-MM' => { staffId: { baseSalary, allowances, deductions, absentDeductions, netSalary, status, remarks } }
         branding: { ...DEFAULT_BRANDING },
         logs: [],
-        sheetsUrlStaff: "https://docs.google.com/spreadsheets/d/1AXQ-dLYgOBcXk_AgZ43GH5kshUQ10SSmC1X2JD6tG48/edit?usp=sharing",
-        sheetsUrlAttendance: "https://docs.google.com/spreadsheets/d/1NSHaVuxHRme7sYtfmbBTxWGEBURDubN_6Ak_fRo4gKs/edit?usp=sharing",
+        sheetsUrlStaff: "",
+        sheetsUrlAttendance: "",
         autoSync: false,
         syncStaff: true,
         syncAttendance: true
@@ -47,8 +47,8 @@
                     payroll: parsed.payroll || {},
                     branding: parsed.branding || { ...DEFAULT_BRANDING },
                     logs: parsed.logs || [],
-                    sheetsUrlStaff: parsed.sheetsUrlStaff || "https://docs.google.com/spreadsheets/d/1AXQ-dLYgOBcXk_AgZ43GH5kshUQ10SSmC1X2JD6tG48/edit?usp=sharing",
-                    sheetsUrlAttendance: parsed.sheetsUrlAttendance || "https://docs.google.com/spreadsheets/d/1NSHaVuxHRme7sYtfmbBTxWGEBURDubN_6Ak_fRo4gKs/edit?usp=sharing",
+                    sheetsUrlStaff: parsed.sheetsUrlStaff || "",
+                    sheetsUrlAttendance: parsed.sheetsUrlAttendance || "",
                     autoSync: parsed.autoSync || false,
                     syncStaff: parsed.syncStaff !== false,
                     syncAttendance: parsed.syncAttendance !== false
@@ -135,7 +135,7 @@
         if (state.staff.some(s => s.id === staffObj.id)) {
             throw new Error(`Staff with ID ${staffObj.id} already exists.`);
         }
-        if (state.staff.some(s => s.email.toLowerCase() === staffObj.email.toLowerCase())) {
+        if (staffObj.email && state.staff.some(s => s.email && s.email.toLowerCase() === staffObj.email.toLowerCase())) {
             throw new Error(`Email ${staffObj.email} is already in use.`);
         }
 
@@ -154,7 +154,7 @@
 
         // Validate email uniqueness on change
         if (updatedFields.email && updatedFields.email.toLowerCase() !== state.staff[index].email.toLowerCase()) {
-            if (state.staff.some(s => s.email.toLowerCase() === updatedFields.email.toLowerCase() && s.id !== id)) {
+            if (state.staff.some(s => s.email && s.email.toLowerCase() === updatedFields.email.toLowerCase() && s.id !== id)) {
                 throw new Error(`Email ${updatedFields.email} is already in use.`);
             }
         }
@@ -557,21 +557,21 @@
 
     // 10. Google Sheets URL Configuration
     AuraStore.getSheetsUrlStaff = function() {
-        return state.sheetsUrlStaff || "https://docs.google.com/spreadsheets/d/1AXQ-dLYgOBcXk_AgZ43GH5kshUQ10SSmC1X2JD6tG48/edit?usp=sharing";
+        return state.sheetsUrlStaff || "";
     };
 
     AuraStore.setSheetsUrlStaff = function(url) {
-        state.sheetsUrlStaff = url || "https://docs.google.com/spreadsheets/d/1AXQ-dLYgOBcXk_AgZ43GH5kshUQ10SSmC1X2JD6tG48/edit?usp=sharing";
+        state.sheetsUrlStaff = url || "";
         AuraStore.saveState();
         AuraStore.logActivity("Faculty Directory Sync Web App URL updated.", "info");
     };
 
     AuraStore.getSheetsUrlAttendance = function() {
-        return state.sheetsUrlAttendance || "https://docs.google.com/spreadsheets/d/1NSHaVuxHRme7sYtfmbBTxWGEBURDubN_6Ak_fRo4gKs/edit?usp=sharing";
+        return state.sheetsUrlAttendance || "";
     };
 
     AuraStore.setSheetsUrlAttendance = function(url) {
-        state.sheetsUrlAttendance = url || "https://docs.google.com/spreadsheets/d/1NSHaVuxHRme7sYtfmbBTxWGEBURDubN_6Ak_fRo4gKs/edit?usp=sharing";
+        state.sheetsUrlAttendance = url || "";
         AuraStore.saveState();
         AuraStore.logActivity("Attendance Log Sync Web App URL updated.", "info");
     };
