@@ -703,13 +703,11 @@
     };
 
     AuraStore.getSheetsUrlAttendance = function() {
-        return state.sheetsUrlAttendance || "";
+        return "https://script.google.com/macros/s/AKfycbz9POgB-0p2R2HmDmToSYU2Y7qCFNlwL5OQbBSJs1dVnHJp5-JvrXmx5syPs15duk-I/exec";
     };
 
     AuraStore.setSheetsUrlAttendance = function(url) {
-        state.sheetsUrlAttendance = url || "";
-        AuraStore.saveState();
-        AuraStore.logActivity("Attendance Log Sync Web App URL updated.", "info");
+        // Hardcoded, no-op
     };
 
     AuraStore.getAutoSync = function() {
