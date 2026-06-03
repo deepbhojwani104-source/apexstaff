@@ -1385,7 +1385,6 @@ function doPost(e) {
       });
       coursesSheet.autoResizeColumns(1, 3);
     }
-  }
     
     // 2. Save Daily Attendance records to the Attendance tab
     if (syncAttendance) {
