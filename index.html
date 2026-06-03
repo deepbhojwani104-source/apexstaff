@@ -526,13 +526,28 @@
                                 </div>
                             </div>
                             <div class="settings-card-body">
-                                <div class="form-group">
+                                <div class="form-group" style="display: none;">
                                     <label for="settings-sheets-url-staff">Faculty Directory Sync URL (for Sheet1)</label>
                                     <input type="url" id="settings-sheets-url-staff" placeholder="https://script.google.com/macros/s/.../exec">
                                 </div>
-                                <div class="form-group" style="margin-top: 10px;">
+                                <div class="form-group" style="display: none; margin-top: 10px;">
                                     <label for="settings-sheets-url-attendance">Attendance Log Sync URL (for Attendance tab)</label>
                                     <input type="url" id="settings-sheets-url-attendance" placeholder="https://script.google.com/macros/s/.../exec">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 15px;">
+                                    <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); display: block; margin-bottom: 8px;">Target Spreadsheets (Locked)</span>
+                                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                                        <a href="https://docs.google.com/spreadsheets/d/1AXQ-dLYgOBcXk_AgZ43GH5kshUQ10SSmC1X2JD6tG48/edit?usp=sharing" target="_blank" style="display: flex; align-items: center; gap: 8px; color: #107c41; text-decoration: none; font-size: 13px; font-weight: 600; padding: 10px 12px; background: rgba(16, 124, 65, 0.05); border: 1px solid rgba(16, 124, 65, 0.2); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='rgba(16, 124, 65, 0.1)'; this.style.borderColor='rgba(16, 124, 65, 0.4)'" onmouseout="this.style.background='rgba(16, 124, 65, 0.05)'; this.style.borderColor='rgba(16, 124, 65, 0.2)'">
+                                            <span class="material-symbols-outlined" style="font-size: 20px;">table_view</span>
+                                            <span>Faculty Directory (Sheet1)</span>
+                                            <span class="material-symbols-outlined" style="font-size: 14px; margin-left: auto; color: var(--text-muted);">open_in_new</span>
+                                        </a>
+                                        <a href="https://docs.google.com/spreadsheets/d/1NSHaVuxHRme7sYtfmbBTxWGEBURDubN_6Ak_fRo4gKs/edit?usp=sharing" target="_blank" style="display: flex; align-items: center; gap: 8px; color: #107c41; text-decoration: none; font-size: 13px; font-weight: 600; padding: 10px 12px; background: rgba(16, 124, 65, 0.05); border: 1px solid rgba(16, 124, 65, 0.2); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='rgba(16, 124, 65, 0.1)'; this.style.borderColor='rgba(16, 124, 65, 0.4)'" onmouseout="this.style.background='rgba(16, 124, 65, 0.05)'; this.style.borderColor='rgba(16, 124, 65, 0.2)'">
+                                            <span class="material-symbols-outlined" style="font-size: 20px;">table_view</span>
+                                            <span>Attendance Log (Attendance Tab)</span>
+                                            <span class="material-symbols-outlined" style="font-size: 14px; margin-left: auto; color: var(--text-muted);">open_in_new</span>
+                                        </a>
+                                    </div>
                                 </div>
                                 <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
                                     <input type="checkbox" id="settings-auto-sync" style="width: auto; cursor: pointer; margin: 0;">

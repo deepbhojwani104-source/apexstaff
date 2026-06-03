@@ -24,8 +24,8 @@
         payroll: {},    // 'YYYY-MM' => { staffId: { baseSalary, allowances, deductions, absentDeductions, netSalary, status, remarks } }
         branding: { ...DEFAULT_BRANDING },
         logs: [],
-        sheetsUrlStaff: "",
-        sheetsUrlAttendance: "",
+        sheetsUrlStaff: "https://docs.google.com/spreadsheets/d/1AXQ-dLYgOBcXk_AgZ43GH5kshUQ10SSmC1X2JD6tG48/edit?usp=sharing",
+        sheetsUrlAttendance: "https://docs.google.com/spreadsheets/d/1NSHaVuxHRme7sYtfmbBTxWGEBURDubN_6Ak_fRo4gKs/edit?usp=sharing",
         autoSync: false,
         syncStaff: true,
         syncAttendance: true
@@ -47,8 +47,8 @@
                     payroll: parsed.payroll || {},
                     branding: parsed.branding || { ...DEFAULT_BRANDING },
                     logs: parsed.logs || [],
-                    sheetsUrlStaff: parsed.sheetsUrlStaff || parsed.sheetsUrl || "",
-                    sheetsUrlAttendance: parsed.sheetsUrlAttendance || parsed.sheetsUrl || "",
+                    sheetsUrlStaff: parsed.sheetsUrlStaff || "https://docs.google.com/spreadsheets/d/1AXQ-dLYgOBcXk_AgZ43GH5kshUQ10SSmC1X2JD6tG48/edit?usp=sharing",
+                    sheetsUrlAttendance: parsed.sheetsUrlAttendance || "https://docs.google.com/spreadsheets/d/1NSHaVuxHRme7sYtfmbBTxWGEBURDubN_6Ak_fRo4gKs/edit?usp=sharing",
                     autoSync: parsed.autoSync || false,
                     syncStaff: parsed.syncStaff !== false,
                     syncAttendance: parsed.syncAttendance !== false
@@ -557,21 +557,21 @@
 
     // 10. Google Sheets URL Configuration
     AuraStore.getSheetsUrlStaff = function() {
-        return state.sheetsUrlStaff || "";
+        return state.sheetsUrlStaff || "https://docs.google.com/spreadsheets/d/1AXQ-dLYgOBcXk_AgZ43GH5kshUQ10SSmC1X2JD6tG48/edit?usp=sharing";
     };
 
     AuraStore.setSheetsUrlStaff = function(url) {
-        state.sheetsUrlStaff = url;
+        state.sheetsUrlStaff = url || "https://docs.google.com/spreadsheets/d/1AXQ-dLYgOBcXk_AgZ43GH5kshUQ10SSmC1X2JD6tG48/edit?usp=sharing";
         AuraStore.saveState();
         AuraStore.logActivity("Faculty Directory Sync Web App URL updated.", "info");
     };
 
     AuraStore.getSheetsUrlAttendance = function() {
-        return state.sheetsUrlAttendance || "";
+        return state.sheetsUrlAttendance || "https://docs.google.com/spreadsheets/d/1NSHaVuxHRme7sYtfmbBTxWGEBURDubN_6Ak_fRo4gKs/edit?usp=sharing";
     };
 
     AuraStore.setSheetsUrlAttendance = function(url) {
-        state.sheetsUrlAttendance = url;
+        state.sheetsUrlAttendance = url || "https://docs.google.com/spreadsheets/d/1NSHaVuxHRme7sYtfmbBTxWGEBURDubN_6Ak_fRo4gKs/edit?usp=sharing";
         AuraStore.saveState();
         AuraStore.logActivity("Attendance Log Sync Web App URL updated.", "info");
     };
