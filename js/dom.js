@@ -642,11 +642,14 @@
             <div class="payslip-box">
                 <!-- Slip Branding Header -->
                 <div class="payslip-header-table">
-                    <div class="payslip-brand">
-                        <h2>${branding.name}</h2>
-                        <p>${branding.tagline || ''}</p>
-                        <p>${branding.address}</p>
-                        <p>Email: ${branding.email} | Tel: ${branding.phone}</p>
+                    <div class="payslip-brand" style="display: flex; align-items: center; gap: 12px;">
+                        <img src="icons/logo.png" alt="Logo" style="height: 50px; border-radius: 4px;">
+                        <div>
+                            <h2 style="margin: 0; font-size: 18px;">${branding.name}</h2>
+                            <p style="margin: 2px 0 0 0; font-size: 11px;">${branding.tagline || ''}</p>
+                            <p style="margin: 2px 0 0 0; font-size: 11px;">${branding.address}</p>
+                            <p style="margin: 2px 0 0 0; font-size: 11px;">Email: ${branding.email} | Tel: ${branding.phone}</p>
+                        </div>
                     </div>
                     <div class="payslip-title-block">
                         <h3>Salary Slip</h3>
@@ -1138,11 +1141,14 @@
             <body>
                 <div class="receipt-container">
                     <div class="header">
-                        <div class="brand-details">
-                            <h1>${branding.name.toUpperCase()}</h1>
-                            <p>${branding.tagline}</p>
-                            <p>${branding.address}</p>
-                            <p>Email: ${branding.email} | Phone: ${branding.phone}</p>
+                        <div class="brand-header" style="display: flex; align-items: center; gap: 15px;">
+                            <img src="icons/logo.png" alt="Samyak Logo" style="height: 60px; border-radius: 4px;">
+                            <div class="brand-details">
+                                <h1 style="margin: 0 0 4px 0; color: #4f46e5; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">${branding.name.toUpperCase()}</h1>
+                                <p>${branding.tagline}</p>
+                                <p>${branding.address}</p>
+                                <p>Email: ${branding.email} | Phone: ${branding.phone}</p>
+                            </div>
                         </div>
                         <div class="receipt-meta">
                             <h2>FEE RECEIPT</h2>
