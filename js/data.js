@@ -875,7 +875,7 @@
         // Helper to merge pulled data into local state
         function mergeData() {
             // 1. Merge Staff list
-            if (syncStaff && pulledStaff.length > 0) {
+            if (pulledStaff && pulledStaff.length > 0) {
                 const localStaffMap = {};
                 state.staff.forEach(s => localStaffMap[s.id] = s);
 
@@ -911,7 +911,7 @@
             }
 
             // 2. Merge Attendance Logs
-            if (syncAttendance && Object.keys(pulledAttendance).length > 0) {
+            if (pulledAttendance && Object.keys(pulledAttendance).length > 0) {
                 Object.keys(pulledAttendance).forEach(dateStr => {
                     if (!state.attendance[dateStr]) {
                         state.attendance[dateStr] = pulledAttendance[dateStr];
@@ -940,7 +940,7 @@
             }
 
             // 3. Merge Payroll
-            if (syncStaff && pulledPayroll && Object.keys(pulledPayroll).length > 0) {
+            if (pulledPayroll && Object.keys(pulledPayroll).length > 0) {
                 Object.keys(pulledPayroll).forEach(monthKey => {
                     if (!state.payroll[monthKey]) {
                         state.payroll[monthKey] = pulledPayroll[monthKey];
@@ -968,7 +968,7 @@
             }
 
             // 4. Merge Students
-            if (syncStaff && pulledStudents && pulledStudents.length > 0) {
+            if (pulledStudents && pulledStudents.length > 0) {
                 const localStudentsMap = {};
                 if (!state.students) state.students = [];
                 state.students.forEach(s => localStudentsMap[s.id] = s);
@@ -1005,7 +1005,7 @@
             }
 
             // 5. Merge Courses
-            if (syncStaff && pulledCourses && pulledCourses.length > 0) {
+            if (pulledCourses && pulledCourses.length > 0) {
                 const localCoursesMap = {};
                 if (!state.courses) state.courses = [];
                 state.courses.forEach(c => localCoursesMap[c.name.toLowerCase()] = c);
