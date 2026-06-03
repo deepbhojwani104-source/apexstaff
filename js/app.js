@@ -963,12 +963,65 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Reset System data click
     $("#btn-wipe-data").addEventListener("click", () => {
-        if (confirm("WARNING: This will permanently wipe all staff files, schedules, and payroll ledger entries. Are you absolutely sure?")) {
+        if (confirm("WARNING: This will permanently wipe all staff files, schedules, payroll ledger, and student records locally. If sync is configured, it will also clear all data in your Google Sheets. Proceed?")) {
+            AuraDOM.showToast("Wiping databases...", "warning");
             AuraStore.wipeAllData();
-            AuraDOM.showToast("Databases wiped and reset.", "warning");
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+            
+            const urlStaff = AuraStore.getSheetsUrlStaff();
+            const urlAttendance = AuraStore.getSheetsUrlAttendance();
+            const syncStaff = AuraStore.getSyncStaff();
+            const syncAttendance = AuraStore.getSyncAttendance();
+            
+            let pendingWipes = 0;
+            
+            function wipeDone() {
+                pendingWipes--;
+                if (pendingWipes <= 0) {
+                    AuraDOM.showToast("Local and Google Sheets databases wiped successfully!", "success");
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1200);
+                }
+            }
+            
+            if (syncStaff && urlStaff) {
+                pendingWipes++;
+                const payload = {
+                    branding: AuraStore.getBranding(),
+                    staff: [],
+                    payroll: {},
+                    students: [],
+                    courses: [],
+                    options: {
+                        syncStaff: true,
+                        syncAttendance: false
+                    }
+                };
+                AuraStore.postPayload(urlStaff, payload, wipeDone);
+            }
+            
+            if (syncAttendance && urlAttendance) {
+                pendingWipes++;
+                const payload = {
+                    branding: AuraStore.getBranding(),
+                    staff: [],
+                    attendance: {},
+                    students: [],
+                    courses: [],
+                    options: {
+                        syncStaff: false,
+                        syncAttendance: true
+                    }
+                };
+                AuraStore.postPayload(urlAttendance, payload, wipeDone);
+            }
+            
+            if (pendingWipes === 0) {
+                AuraDOM.showToast("Local databases reset successfully.", "success");
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            }
         }
     });
 
