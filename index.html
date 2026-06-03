@@ -95,6 +95,10 @@
                     <span class="material-symbols-outlined">payments</span>
                     <span>Payroll Hub</span>
                 </a>
+                <a href="#students" class="menu-item" data-view="students">
+                    <span class="material-symbols-outlined">local_library</span>
+                    <span>Student Enrollment</span>
+                </a>
                 <a href="#settings" class="menu-item" data-view="settings">
                     <span class="material-symbols-outlined">settings</span>
                     <span>System Settings</span>
@@ -385,6 +389,7 @@
                                     <th>Department</th>
                                     <th>Attendance Status</th>
                                     <th>Check-In Time</th>
+                                    <th>Check-Out Time</th>
                                     <th>Remarks / Notes</th>
                                 </tr>
                             </thead>
@@ -421,6 +426,14 @@
                                 <select id="payroll-year">
                                     <option value="2026">2026</option>
                                     <option value="2027">2027</option>
+                                </select>
+                            </div>
+                            <div class="filter-select">
+                                <span class="material-symbols-outlined">payments</span>
+                                <select id="payroll-calc-type">
+                                    <option value="profile">Use Faculty Profile Settings</option>
+                                    <option value="standard">Calculate after Leave Deduction</option>
+                                    <option value="fixed">Fixed Salary (Irrespective of Leaves)</option>
                                 </select>
                             </div>
                             <button id="btn-calculate-payroll" class="btn btn-primary">
@@ -474,6 +487,162 @@
                                 <!-- Dynamic items injected via JS -->
                             </tbody>
                         </table>
+                    </div>
+                </section>
+
+                <!-- View: Student Enrollment -->
+                <section id="view-students" class="page-view hide">
+                    <div class="settings-grid">
+                        
+                        <!-- Course Price Master Section -->
+                        <div class="glass-card settings-card">
+                            <div class="settings-card-header">
+                                <span class="material-symbols-outlined icon-box-settings">menu_book</span>
+                                <div>
+                                    <h3>Course Price Master</h3>
+                                    <p>Configure course packages and default fees.</p>
+                                </div>
+                            </div>
+                            <div class="settings-card-body">
+                                <form id="course-master-form" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+                                    <div class="form-group">
+                                        <label for="course-name-input">Course Name</label>
+                                        <input type="text" id="course-name-input" placeholder="e.g. Python, AI, ML" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="course-price-input">Course Price (₹)</label>
+                                        <input type="number" id="course-price-input" placeholder="e.g. 8000" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-secondary btn-sm" style="align-self: flex-end;">
+                                        <span class="material-symbols-outlined" style="font-size:16px;">add</span>
+                                        <span>Add / Update Course</span>
+                                    </button>
+                                </form>
+
+                                <div class="table-responsive-container" style="max-height: 200px; overflow-y: auto;">
+                                    <table class="data-table" style="font-size: 13px;">
+                                        <thead>
+                                            <tr>
+                                                <th>Course Name</th>
+                                                <th>Price</th>
+                                                <th class="text-center">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="course-list-body">
+                                            <!-- Dynamic courses -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Student Enrollment Form -->
+                        <div class="glass-card settings-card">
+                            <div class="settings-card-header">
+                                <span class="material-symbols-outlined icon-box-settings">how_to_reg</span>
+                                <div>
+                                    <h3>Student Registration Form</h3>
+                                    <p>Register new student details and record fee collections.</p>
+                                </div>
+                            </div>
+                            <div class="settings-card-body">
+                                <form id="student-enrollment-form" class="grid-form">
+                                    <input type="hidden" id="student-edit-id" value="">
+                                    <div class="form-group col-span-2">
+                                        <label for="student-name">Student Name *</label>
+                                        <input type="text" id="student-name" placeholder="Enter student's full name" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="student-branch">Branch *</label>
+                                        <div class="filter-select">
+                                            <select id="student-branch" required>
+                                                <option value="Beawar">Beawar</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="student-course">Course *</label>
+                                        <div class="filter-select">
+                                            <select id="student-course" required>
+                                                <!-- Dynamic options from course list -->
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="student-course-fee">Course Fee (₹) *</label>
+                                        <input type="number" id="student-course-fee" readonly class="input-readonly">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="student-amount-received">Amount Received (₹) *</label>
+                                        <input type="number" id="student-amount-received" placeholder="e.g. 5000" min="0" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="student-due-date">Due Date</label>
+                                        <input type="date" id="student-due-date">
+                                    </div>
+                                    
+                                    <div class="form-group col-span-2">
+                                        <label style="margin-bottom: 8px;">Fee Type *</label>
+                                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; text-transform: none; font-size:13px;">
+                                                <input type="checkbox" name="fee-type-cb" value="New Registration" style="width:auto; height:auto; margin:0; cursor:pointer;">
+                                                New Registration
+                                            </label>
+                                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; text-transform: none; font-size:13px;">
+                                                <input type="checkbox" name="fee-type-cb" value="Late fee" style="width:auto; height:auto; margin:0; cursor:pointer;">
+                                                Late Fee
+                                            </label>
+                                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; text-transform: none; font-size:13px;">
+                                                <input type="checkbox" name="fee-type-cb" value="Due fee" style="width:auto; height:auto; margin:0; cursor:pointer;">
+                                                Due Fee
+                                            </label>
+                                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; text-transform: none; font-size:13px;">
+                                                <input type="checkbox" name="fee-type-cb" value="Registration fee" style="width:auto; height:auto; margin:0; cursor:pointer;">
+                                                Registration Fee
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group col-span-2 text-right" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+                                        <button type="button" id="btn-clear-student" class="btn btn-outline">Clear</button>
+                                        <button type="submit" class="btn btn-primary">Save Student</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Enrolled Students List -->
+                        <div class="glass-card settings-card col-span-2">
+                            <div class="settings-card-header">
+                                <span class="material-symbols-outlined icon-box-settings">group</span>
+                                <div>
+                                    <h3>Enrolled Students List</h3>
+                                    <p>Manage all registered students and review their payment history.</p>
+                                </div>
+                            </div>
+                            <div class="settings-card-body table-responsive-container">
+                                <table class="data-table" id="students-list-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Student ID</th>
+                                            <th>Name</th>
+                                            <th>Course</th>
+                                            <th>Branch</th>
+                                            <th>Course Fee</th>
+                                            <th>Amount Received</th>
+                                            <th>Pending Due</th>
+                                            <th>Due Date</th>
+                                            <th>Fee Type</th>
+                                            <th class="text-center">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="student-list-body">
+                                        <!-- Dynamic records -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
                     </div>
                 </section>
 

@@ -316,6 +316,9 @@
                     <input type="time" class="table-input-time" value="${record.checkIn || ''}" placeholder="--:--">
                 </td>
                 <td>
+                    <input type="time" class="table-input-time table-input-timeout" value="${record.checkOut || ''}" placeholder="--:--">
+                </td>
+                <td>
                     <input type="text" class="table-input-comment" value="${record.remarks || ''}" placeholder="Notes/Remarks">
                 </td>
             `;
@@ -747,6 +750,107 @@
                 </div>
             </div>
         `;
+    };
+
+    // ==========================================================================
+    // 7. Student Enrollment and Course Master Renderers
+    // ==========================================================================
+    AuraDOM.renderStudentsView = function() {
+        const courses = AuraStore.getCourses();
+        const students = AuraStore.getStudents();
+
+        // 1. Render Course options dropdown in student form
+        const studentCourseSelect = $("#student-course");
+        if (studentCourseSelect) {
+            studentCourseSelect.innerHTML = "";
+            courses.forEach(c => {
+                const opt = document.createElement("option");
+                opt.value = c.name;
+                opt.textContent = `${c.name} (₹${c.price.toLocaleString('en-IN')})`;
+                studentCourseSelect.appendChild(opt);
+            });
+            // Trigger course fee auto-population on load/change
+            if (courses.length > 0) {
+                const selectedCourseName = studentCourseSelect.value;
+                const course = courses.find(c => c.name === selectedCourseName);
+                if (course) {
+                    $("#student-course-fee").value = course.price;
+                }
+            } else {
+                $("#student-course-fee").value = 0;
+            }
+        }
+
+        // 2. Render Course list table in Course Master
+        const courseListBody = $("#course-list-body");
+        if (courseListBody) {
+            courseListBody.innerHTML = "";
+            if (courses.length === 0) {
+                courseListBody.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="text-center text-muted py-2" style="font-size:12px;">No courses configured.</td>
+                    </tr>
+                `;
+            } else {
+                courses.forEach(c => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td><strong>${c.name}</strong></td>
+                        <td>₹${c.price.toLocaleString('en-IN')}</td>
+                        <td class="text-center">
+                            <button class="btn btn-outline btn-sm btn-delete-course" data-name="${c.name}" style="padding: 2px 6px;" title="Delete Course">
+                                <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                            </button>
+                        </td>
+                    `;
+                    courseListBody.appendChild(tr);
+                });
+            }
+        }
+
+        // 3. Render Student list table
+        const studentListBody = $("#student-list-body");
+        if (studentListBody) {
+            studentListBody.innerHTML = "";
+            if (students.length === 0) {
+                studentListBody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="text-center text-muted py-4">No enrolled students registered.</td>
+                    </tr>
+                `;
+            } else {
+                students.forEach(s => {
+                    const dueAmt = Math.max(0, s.courseFee - s.amountReceived);
+                    const dueDisplay = dueAmt > 0 ? `<strong class="text-rose">₹${dueAmt.toLocaleString('en-IN')}</strong>` : `<span class="text-success" style="font-weight:600;">Paid</span>`;
+                    
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td><strong>${s.id}</strong></td>
+                        <td>${s.name}</td>
+                        <td><span class="node-dept-pill">${s.course}</span></td>
+                        <td>${s.branch}</td>
+                        <td>₹${s.courseFee.toLocaleString('en-IN')}</td>
+                        <td>₹${s.amountReceived.toLocaleString('en-IN')}</td>
+                        <td>${dueDisplay}</td>
+                        <td>${s.dueDate ? new Date(s.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}</td>
+                        <td>
+                            ${s.feeType ? s.feeType.map(t => `<span class="badge badge-info" style="font-size:10px; margin: 1px;">${t}</span>`).join('') : ''}
+                        </td>
+                        <td class="text-center">
+                            <div class="table-action-btn-row" style="justify-content: center;">
+                                <button class="btn btn-outline btn-sm btn-edit-student" data-id="${s.id}" title="Edit details">
+                                    <span class="material-symbols-outlined" style="font-size:16px;">edit</span>
+                                </button>
+                                <button class="btn btn-secondary btn-sm btn-delete-student" data-id="${s.id}" title="Delete enrollment">
+                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    studentListBody.appendChild(tr);
+                });
+            }
+        }
     };
 
     // ==========================================================================

@@ -20,8 +20,10 @@
     // System State Container
     let state = {
         staff: [],
-        attendance: {}, // Date string 'YYYY-MM-DD' => { staffId: { status, checkIn, remarks } }
+        attendance: {}, // Date string 'YYYY-MM-DD' => { staffId: { status, checkIn, checkOut, remarks } }
         payroll: {},    // 'YYYY-MM' => { staffId: { baseSalary, allowances, deductions, absentDeductions, netSalary, status, remarks } }
+        students: [],
+        courses: [],
         branding: { ...DEFAULT_BRANDING },
         logs: [],
         sheetsUrlStaff: "",
@@ -45,6 +47,8 @@
                     staff: parsed.staff || [],
                     attendance: parsed.attendance || {},
                     payroll: parsed.payroll || {},
+                    students: parsed.students || [],
+                    courses: parsed.courses || [],
                     branding: parsed.branding || { ...DEFAULT_BRANDING },
                     logs: parsed.logs || [],
                     sheetsUrlStaff: parsed.sheetsUrlStaff || "",
@@ -139,6 +143,7 @@
             throw new Error(`Email ${staffObj.email} is already in use.`);
         }
 
+        staffObj.lastUpdated = Date.now();
         state.staff.push(staffObj);
         AuraStore.saveState();
         AuraStore.logActivity(`Added staff member ${staffObj.name} (${staffObj.id})`, "success");
@@ -153,13 +158,13 @@
         }
 
         // Validate email uniqueness on change
-        if (updatedFields.email && updatedFields.email.toLowerCase() !== state.staff[index].email.toLowerCase()) {
+        if (updatedFields.email && updatedFields.email.toLowerCase() !== (state.staff[index].email || '').toLowerCase()) {
             if (state.staff.some(s => s.email && s.email.toLowerCase() === updatedFields.email.toLowerCase() && s.id !== id)) {
                 throw new Error(`Email ${updatedFields.email} is already in use.`);
             }
         }
 
-        state.staff[index] = { ...state.staff[index], ...updatedFields };
+        state.staff[index] = { ...state.staff[index], ...updatedFields, lastUpdated: Date.now() };
         AuraStore.saveState();
         AuraStore.logActivity(`Updated info for ${state.staff[index].name} (${id})`, "info");
         return state.staff[index];
@@ -185,7 +190,10 @@
     };
 
     AuraStore.saveDailyAttendance = function(dateStr, records) {
-        // Records should be map: { staffId: { status, checkIn, remarks } }
+        // Records should be map: { staffId: { status, checkIn, checkOut, remarks } }
+        Object.keys(records).forEach(staffId => {
+            records[staffId].lastUpdated = Date.now();
+        });
         state.attendance[dateStr] = records;
         AuraStore.saveState();
         AuraStore.logActivity(`Saved daily attendance sheet for ${dateStr}.`, "success");
@@ -228,7 +236,7 @@
     };
 
     // Calculates and processes payroll for a specific month YYYY-MM
-    AuraStore.calculatePayrollForMonth = function(year, month, selectedIds) {
+    AuraStore.calculatePayrollForMonth = function(year, month, selectedIds, calcType) {
         const key = `${year}-${String(month + 1).padStart(2, '0')}`;
         
         // Initialize payroll object for this month if missing
@@ -246,9 +254,10 @@
             const attendStats = AuraStore.calculateStaffAttendanceStats(employee.id, year, month);
             
             let absentDeductions = 0;
-            const salaryType = employee.salaryType || "Standard";
+            // calcType can be: "fixed" (no leaves deduction) or "standard" (deduct from salary) or default to profile setting
+            const actualCalcType = (calcType === "fixed") ? "Fixed" : (calcType === "standard" ? "Standard" : (employee.salaryType || "Standard"));
 
-            if (salaryType === "Fixed") {
+            if (actualCalcType === "Fixed") {
                 // Fixed pays full base salary regardless of attendance
                 absentDeductions = 0;
             } else {
@@ -276,7 +285,8 @@
                 leavesCount: attendStats,
                 netSalary,
                 status: paymentStatus,
-                remarks
+                remarks,
+                lastUpdated: Date.now()
             };
         });
 
@@ -306,7 +316,8 @@
             deductions: updatedDeductions,
             remarks: updatedRemarks,
             status: updatedStatus,
-            netSalary
+            netSalary,
+            lastUpdated: Date.now()
         };
 
         AuraStore.saveState();
@@ -322,6 +333,7 @@
         idsToApprove.forEach(staffId => {
             if (state.payroll[key][staffId]) {
                 state.payroll[key][staffId].status = "Paid";
+                state.payroll[key][staffId].lastUpdated = Date.now();
             }
         });
 
@@ -374,6 +386,8 @@
             staff: [],
             attendance: {},
             payroll: {},
+            students: [],
+            courses: [],
             branding: { ...DEFAULT_BRANDING },
             logs: []
         };
@@ -538,8 +552,113 @@
             }
         }
 
+        // Default courses
+        state.courses = [
+            { name: "Python", price: 8000, lastUpdated: Date.now() },
+            { name: "AI", price: 12000, lastUpdated: Date.now() },
+            { name: "ML", price: 15000, lastUpdated: Date.now() }
+        ];
+
+        // Default students
+        state.students = [
+            {
+                id: "STU-1001",
+                name: "Rohan Verma",
+                course: "Python",
+                branch: "Beawar",
+                courseFee: 8000,
+                amountReceived: 5000,
+                dueDate: "2026-06-15",
+                feeType: ["New Registration", "Registration Fee"],
+                lastUpdated: Date.now()
+            },
+            {
+                id: "STU-1002",
+                name: "Anjali Gupta",
+                course: "AI",
+                branch: "Beawar",
+                courseFee: 12000,
+                amountReceived: 12000,
+                dueDate: "",
+                feeType: ["New Registration"],
+                lastUpdated: Date.now()
+            }
+        ];
+
         AuraStore.saveState();
         AuraStore.logActivity("Demo databases populated with realistic records.", "success");
+    };
+
+    // Course Master operations
+    AuraStore.getCourses = function() {
+        return state.courses || [];
+    };
+
+    AuraStore.addCourse = function(courseObj) {
+        courseObj.lastUpdated = Date.now();
+        if (!state.courses) state.courses = [];
+        const existing = state.courses.find(c => c.name.toLowerCase() === courseObj.name.toLowerCase());
+        if (existing) {
+            existing.price = courseObj.price;
+            existing.lastUpdated = Date.now();
+        } else {
+            state.courses.push(courseObj);
+        }
+        AuraStore.saveState();
+        AuraStore.logActivity(`Course ${courseObj.name} configured with price ₹${courseObj.price}`, "success");
+    };
+
+    AuraStore.deleteCourse = function(name) {
+        if (!state.courses) return;
+        const index = state.courses.findIndex(c => c.name === name);
+        if (index !== -1) {
+            state.courses.splice(index, 1);
+            AuraStore.saveState();
+            AuraStore.logActivity(`Removed course ${name}.`, "danger");
+        }
+    };
+
+    // Student Enrollment operations
+    AuraStore.getStudents = function() {
+        return state.students || [];
+    };
+
+    AuraStore.addStudent = function(studentObj) {
+        if (!state.students) state.students = [];
+        if (!studentObj.id) {
+            const nextNum = state.students.length > 0
+                ? Math.max(...state.students.map(s => parseInt(s.id.split('-')[1]) || 1000)) + 1
+                : 1001;
+            studentObj.id = `STU-${nextNum}`;
+        }
+        studentObj.lastUpdated = Date.now();
+        state.students.push(studentObj);
+        AuraStore.saveState();
+        AuraStore.logActivity(`Enrolled student ${studentObj.name} (${studentObj.id}) for ${studentObj.course}`, "success");
+        return studentObj;
+    };
+
+    AuraStore.updateStudent = function(id, updatedFields) {
+        if (!state.students) return;
+        const index = state.students.findIndex(s => s.id === id);
+        if (index === -1) {
+            throw new Error("Student not found.");
+        }
+        updatedFields.lastUpdated = Date.now();
+        state.students[index] = { ...state.students[index], ...updatedFields };
+        AuraStore.saveState();
+        AuraStore.logActivity(`Updated details for student ${state.students[index].name} (${id})`, "info");
+        return state.students[index];
+    };
+
+    AuraStore.deleteStudent = function(id) {
+        if (!state.students) return;
+        const index = state.students.findIndex(s => s.id === id);
+        if (index === -1) return;
+        const name = state.students[index].name;
+        state.students.splice(index, 1);
+        AuraStore.saveState();
+        AuraStore.logActivity(`Removed student ${name} (${id})`, "danger");
     };
 
     // 9. Session Authentication Gateways
@@ -682,6 +801,9 @@
         let pullErrors = [];
         let pulledStaff = [];
         let pulledAttendance = {};
+        let pulledPayroll = {};
+        let pulledStudents = [];
+        let pulledCourses = [];
 
         if (syncStaff && urlStaff) pendingPulls++;
         if (syncAttendance && urlAttendance) pendingPulls++;
@@ -715,6 +837,9 @@
                 const payload = {
                     branding: state.branding,
                     staff: state.staff,
+                    payroll: state.payroll,
+                    students: state.students,
+                    courses: state.courses,
                     options: {
                         syncStaff: true,
                         syncAttendance: false
@@ -750,27 +875,22 @@
                 pulledStaff.forEach(pulled => {
                     const local = localStaffMap[pulled.id];
                     if (local) {
-                        // Merge: overwrite local values with Sheets, preserving local fields if sheet has them blank
-                        const merged = {
-                            ...local,
-                            ...pulled,
-                            email: pulled.email || local.email || "",
-                            phone: pulled.phone || local.phone || "",
-                            gender: pulled.gender || local.gender || "Male",
-                            salaryType: pulled.salaryType || local.salaryType || "Standard",
-                            bankName: pulled.bankName || local.bankName || "",
-                            bankAccount: pulled.bankAccount || local.bankAccount || "",
-                            bankIfsc: pulled.bankIfsc || local.bankIfsc || ""
-                        };
-                        mergedStaff.push(merged);
+                        const localTime = local.lastUpdated || 0;
+                        const pulledTime = pulled.lastUpdated || 0;
+                        if (pulledTime >= localTime) {
+                            mergedStaff.push({
+                                ...local,
+                                ...pulled
+                            });
+                        } else {
+                            mergedStaff.push(local);
+                        }
                         processedLocalIds.add(pulled.id);
                     } else {
-                        // Staff member exists on Sheet but not locally (added from another device)
                         mergedStaff.push(pulled);
                     }
                 });
 
-                // Add local staff members that are not in Sheets yet (added locally)
                 state.staff.forEach(s => {
                     if (!processedLocalIds.has(s.id)) {
                         mergedStaff.push(s);
@@ -784,27 +904,133 @@
             if (syncAttendance && Object.keys(pulledAttendance).length > 0) {
                 Object.keys(pulledAttendance).forEach(dateStr => {
                     if (!state.attendance[dateStr]) {
-                        // Date not present locally, add all records
                         state.attendance[dateStr] = pulledAttendance[dateStr];
                     } else {
-                        // Date present locally, merge records employee by employee
                         const localRecords = state.attendance[dateStr];
                         const pulledRecords = pulledAttendance[dateStr];
                         
                         Object.keys(pulledRecords).forEach(staffId => {
-                            if (!localRecords[staffId]) {
-                                // Record exists on sheet but not locally
-                                localRecords[staffId] = pulledRecords[staffId];
+                            const localRec = localRecords[staffId];
+                            const pulledRec = pulledRecords[staffId];
+                            if (!localRec) {
+                                localRecords[staffId] = pulledRec;
                             } else {
-                                // Record exists in both, Sheets is source of truth (override)
-                                localRecords[staffId] = {
-                                    ...localRecords[staffId],
-                                    ...pulledRecords[staffId]
-                                };
+                                const localTime = localRec.lastUpdated || 0;
+                                const pulledTime = pulledRec.lastUpdated || 0;
+                                if (pulledTime >= localTime) {
+                                    localRecords[staffId] = {
+                                        ...localRec,
+                                        ...pulledRec
+                                    };
+                                }
                             }
                         });
                     }
                 });
+            }
+
+            // 3. Merge Payroll
+            if (syncStaff && pulledPayroll && Object.keys(pulledPayroll).length > 0) {
+                Object.keys(pulledPayroll).forEach(monthKey => {
+                    if (!state.payroll[monthKey]) {
+                        state.payroll[monthKey] = pulledPayroll[monthKey];
+                    } else {
+                        const localMonth = state.payroll[monthKey];
+                        const pulledMonth = pulledPayroll[monthKey];
+                        Object.keys(pulledMonth).forEach(staffId => {
+                            const localRec = localMonth[staffId];
+                            const pulledRec = pulledMonth[staffId];
+                            if (!localRec) {
+                                localMonth[staffId] = pulledRec;
+                            } else {
+                                const localTime = localRec.lastUpdated || 0;
+                                const pulledTime = pulledRec.lastUpdated || 0;
+                                if (pulledTime >= localTime) {
+                                    localMonth[staffId] = {
+                                        ...localRec,
+                                        ...pulledRec
+                                    };
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+
+            // 4. Merge Students
+            if (syncStaff && pulledStudents && pulledStudents.length > 0) {
+                const localStudentsMap = {};
+                if (!state.students) state.students = [];
+                state.students.forEach(s => localStudentsMap[s.id] = s);
+
+                const mergedStudents = [];
+                const processedLocalIds = new Set();
+
+                pulledStudents.forEach(pulled => {
+                    const local = localStudentsMap[pulled.id];
+                    if (local) {
+                        const localTime = local.lastUpdated || 0;
+                        const pulledTime = pulled.lastUpdated || 0;
+                        if (pulledTime >= localTime) {
+                            mergedStudents.push({
+                                ...local,
+                                ...pulled
+                            });
+                        } else {
+                            mergedStudents.push(local);
+                        }
+                        processedLocalIds.add(pulled.id);
+                    } else {
+                        mergedStudents.push(pulled);
+                    }
+                });
+
+                state.students.forEach(s => {
+                    if (!processedLocalIds.has(s.id)) {
+                        mergedStudents.push(s);
+                    }
+                });
+
+                state.students = mergedStudents;
+            }
+
+            // 5. Merge Courses
+            if (syncStaff && pulledCourses && pulledCourses.length > 0) {
+                const localCoursesMap = {};
+                if (!state.courses) state.courses = [];
+                state.courses.forEach(c => localCoursesMap[c.name.toLowerCase()] = c);
+
+                const mergedCourses = [];
+                const processedLocalNames = new Set();
+
+                pulledCourses.forEach(pulled => {
+                    const nameKey = pulled.name.toLowerCase();
+                    const local = localCoursesMap[nameKey];
+                    if (local) {
+                        const localTime = local.lastUpdated || 0;
+                        const pulledTime = pulled.lastUpdated || 0;
+                        if (pulledTime >= localTime) {
+                            mergedCourses.push({
+                                ...local,
+                                ...pulled
+                            });
+                        } else {
+                            mergedCourses.push(local);
+                        }
+                        processedLocalNames.add(nameKey);
+                    } else {
+                        mergedCourses.push(pulled);
+                    }
+                });
+
+                state.courses.forEach(c => {
+                    const nameKey = c.name.toLowerCase();
+                    if (!processedLocalNames.has(nameKey)) {
+                        mergedCourses.push(c);
+                    }
+                });
+
+                state.courses = mergedCourses;
             }
 
             AuraStore.saveState();
@@ -817,6 +1043,9 @@
             } else if (data) {
                 if (type === "staff" && data.staff) {
                     pulledStaff = data.staff;
+                    pulledPayroll = data.payroll || {};
+                    pulledStudents = data.students || [];
+                    pulledCourses = data.courses || [];
                 } else if (type === "attendance" && data.attendance) {
                     pulledAttendance = data.attendance;
                 }
@@ -824,7 +1053,6 @@
 
             pendingPulls--;
             if (pendingPulls === 0) {
-                // Merging phase (even if some pull errors occurred, we merge what succeeded and continue)
                 if (pullErrors.length > 0) {
                     console.warn("Pull errors occurred during sync, merging partial data:", pullErrors);
                 }
@@ -858,7 +1086,7 @@
     // Copyable Google Apps Script Template
     AuraStore.GOOGLE_SCRIPT_TEMPLATE = `function doGet(e) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var result = { success: true, staff: [], attendance: {} };
+  var result = { success: true, staff: [], attendance: {}, payroll: {}, students: [], courses: [] };
   
   try {
     // 1. Read Faculty details from Sheet1
@@ -866,7 +1094,7 @@
     if (staffSheet) {
       var lastRow = staffSheet.getLastRow();
       if (lastRow > 1) {
-        var staffRows = staffSheet.getRange(2, 1, lastRow - 1, 14).getValues();
+        var staffRows = staffSheet.getRange(2, 1, lastRow - 1, 15).getValues();
         staffRows.forEach(function(row) {
           if (row[0]) {
             result.staff.push({
@@ -883,7 +1111,8 @@
               salaryType: String(row[10] || "Standard"),
               bankName: String(row[11] || ""),
               bankAccount: String(row[12] || ""),
-              bankIfsc: String(row[13] || "")
+              bankIfsc: String(row[13] || ""),
+              lastUpdated: row[14] ? Number(row[14]) : Date.now()
             });
           }
         });
@@ -891,18 +1120,19 @@
     }
     
     // 2. Read Attendance logs from Attendance tab
-    var attendSheet = ss.getSheetByName("Attendance") || ss.getSheetByName("Sheet1") || ss.getSheets()[0];
+    var attendSheet = ss.getSheetByName("Attendance");
     if (attendSheet) {
       var lastRow = attendSheet.getLastRow();
       if (lastRow > 1) {
-        var attendRows = attendSheet.getRange(2, 1, lastRow - 1, 6).getValues();
+        var attendRows = attendSheet.getRange(2, 1, lastRow - 1, 7).getValues();
         attendRows.forEach(function(row) {
           if (row[0] && row[2]) {
             var staffId = String(row[0]);
             var dateStr = row[2] instanceof Date ? Utilities.formatDate(row[2], Session.getScriptTimeZone(), "yyyy-MM-dd") : String(row[2]);
             var checkIn = String(row[3] || "");
-            var status = String(row[4]);
-            var remarks = String(row[5] || "");
+            var checkOut = String(row[4] || "");
+            var status = String(row[5]);
+            var remarks = String(row[6] || "");
             
             if (!result.attendance[dateStr]) {
               result.attendance[dateStr] = {};
@@ -910,8 +1140,80 @@
             result.attendance[dateStr][staffId] = {
               status: status,
               checkIn: checkIn,
-              remarks: remarks
+              checkOut: checkOut,
+              remarks: remarks,
+              lastUpdated: Date.now()
             };
+          }
+        });
+      }
+    }
+
+    // 3. Read Payroll registers from Payroll tab
+    var payrollSheet = ss.getSheetByName("Payroll");
+    if (payrollSheet) {
+      var lastRow = payrollSheet.getLastRow();
+      if (lastRow > 1) {
+        var payrollRows = payrollSheet.getRange(2, 1, lastRow - 1, 10).getValues();
+        payrollRows.forEach(function(row) {
+          if (row[0] && row[1]) {
+            var monthKey = String(row[0]);
+            var staffId = String(row[1]);
+            if (!result.payroll[monthKey]) {
+              result.payroll[monthKey] = {};
+            }
+            result.payroll[monthKey][staffId] = {
+              baseSalary: Number(row[2]),
+              allowances: Number(row[3]),
+              deductions: Number(row[4]),
+              absentDeductions: Number(row[5]),
+              netSalary: Number(row[6]),
+              status: String(row[7]),
+              remarks: String(row[8] || ""),
+              lastUpdated: row[9] ? Number(row[9]) : Date.now()
+            };
+          }
+        });
+      }
+    }
+
+    // 4. Read Enrolled Students from Students tab
+    var studentsSheet = ss.getSheetByName("Students");
+    if (studentsSheet) {
+      var lastRow = studentsSheet.getLastRow();
+      if (lastRow > 1) {
+        var studentRows = studentsSheet.getRange(2, 1, lastRow - 1, 9).getValues();
+        studentRows.forEach(function(row) {
+          if (row[0]) {
+            result.students.push({
+              id: String(row[0]),
+              name: String(row[1]),
+              course: String(row[2]),
+              branch: String(row[3]),
+              courseFee: Number(row[4]),
+              amountReceived: Number(row[5]),
+              dueDate: row[6] instanceof Date ? Utilities.formatDate(row[6], Session.getScriptTimeZone(), "yyyy-MM-dd") : String(row[6] || ""),
+              feeType: String(row[7]).split(",").map(function(t) { return t.trim(); }),
+              lastUpdated: row[8] ? Number(row[8]) : Date.now()
+            });
+          }
+        });
+      }
+    }
+
+    // 5. Read Courses from Courses tab
+    var coursesSheet = ss.getSheetByName("Courses");
+    if (coursesSheet) {
+      var lastRow = coursesSheet.getLastRow();
+      if (lastRow > 1) {
+        var courseRows = coursesSheet.getRange(2, 1, lastRow - 1, 3).getValues();
+        courseRows.forEach(function(row) {
+          if (row[0]) {
+            result.courses.push({
+              name: String(row[0]),
+              price: Number(row[1]),
+              lastUpdated: row[2] ? Number(row[2]) : Date.now()
+            });
           }
         });
       }
@@ -933,45 +1235,139 @@ function doPost(e) {
     var syncStaff = !data.options || data.options.syncStaff;
     var syncAttendance = !data.options || data.options.syncAttendance;
     
-    // 1. Write Faculty details directly into Sheet1 (the active/first tab with headers)
+    // 1. Write Faculty details directly into Sheet1
     if (syncStaff) {
       var staffSheet = ss.getSheetByName("Sheet1") || ss.getSheets()[0];
-      
-      // Clear all rows below the headers (row 2 onwards)
       var lastRow = staffSheet.getLastRow();
       var lastCol = Math.max(1, staffSheet.getLastColumn());
       if (lastRow > 1) {
         staffSheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
       }
       
-      // Map staff details directly into your columns A to N
       data.staff.forEach(function(s) {
         staffSheet.appendRow([
-          s.id,                  // Column A: faculty id
-          s.name,                // Column B: name
-          s.joiningDate,         // Column C: Date of Joining
-          s.department,          // Column D: Department
-          s.designation,         // Column E: Subject/Role
-          s.baseSalary,          // Column F: salary
-          s.status,              // Column G: employment status
-          s.email || "",         // Column H: Email Address
-          s.phone || "",         // Column I: Phone Number
-          s.gender || "Male",    // Column J: Gender
-          s.salaryType || "Standard", // Column K: Salary Type
-          s.bankName || "",      // Column L: Bank Name
-          s.bankAccount || "",   // Column M: Bank Account
-          s.bankIfsc || ""       // Column N: Bank IFSC
+          s.id,
+          s.name,
+          s.joiningDate,
+          s.department,
+          s.designation,
+          s.baseSalary,
+          s.status,
+          s.email || "",
+          s.phone || "",
+          s.gender || "Male",
+          s.salaryType || "Standard",
+          s.bankName || "",
+          s.bankAccount || "",
+          s.bankIfsc || "",
+          s.lastUpdated || Date.now()
         ]);
       });
-      staffSheet.getRange("A1:N1").setFontWeight("bold");
-      staffSheet.autoResizeColumns(1, 14);
+      staffSheet.getRange("A1:O1").setFontWeight("bold");
+      staffSheet.autoResizeColumns(1, 15);
+
+      // 1b. Write Payroll details directly into Payroll tab
+      if (data.payroll) {
+        var payrollSheet = ss.getSheetByName("Payroll");
+        if (!payrollSheet) {
+          payrollSheet = ss.insertSheet("Payroll");
+          payrollSheet.appendRow([
+            "Month", "Staff ID", "Base Salary", "Allowances", "Deductions", 
+            "Absent Deductions", "Net Salary", "Status", "Remarks", "Last Updated"
+          ]);
+          payrollSheet.getRange("A1:J1").setFontWeight("bold");
+        }
+        var lastRowP = payrollSheet.getLastRow();
+        if (lastRowP > 1) {
+          payrollSheet.getRange(2, 1, lastRowP - 1, 10).clearContent();
+        }
+        Object.keys(data.payroll).forEach(function(monthKey) {
+          var monthRecords = data.payroll[monthKey];
+          Object.keys(monthRecords).forEach(function(staffId) {
+            var rec = monthRecords[staffId];
+            payrollSheet.appendRow([
+              monthKey,
+              staffId,
+              rec.baseSalary,
+              rec.allowances,
+              rec.deductions,
+              rec.absentDeductions,
+              rec.netSalary,
+              rec.status,
+              rec.remarks || "",
+              rec.lastUpdated || Date.now()
+            ]);
+          });
+        });
+        payrollSheet.autoResizeColumns(1, 10);
+      }
+
+      // 1c. Write Enrolled Students directly into Students tab
+      if (data.students) {
+        var studentsSheet = ss.getSheetByName("Students");
+        if (!studentsSheet) {
+          studentsSheet = ss.insertSheet("Students");
+          studentsSheet.appendRow([
+            "Student ID", "Name", "Course", "Branch", "Course Fee", 
+            "Amount Received", "Due Date", "Fee Type", "Last Updated"
+          ]);
+          studentsSheet.getRange("A1:I1").setFontWeight("bold");
+        }
+        var lastRowS = studentsSheet.getLastRow();
+        if (lastRowS > 1) {
+          studentsSheet.getRange(2, 1, lastRowS - 1, 9).clearContent();
+        }
+        data.students.forEach(function(s) {
+          studentsSheet.appendRow([
+            s.id,
+            s.name,
+            s.course,
+            s.branch,
+            s.courseFee,
+            s.amountReceived,
+            s.dueDate || "",
+            s.feeType ? s.feeType.join(", ") : "",
+            s.lastUpdated || Date.now()
+          ]);
+        });
+        studentsSheet.autoResizeColumns(1, 9);
+      }
+
+      // 1d. Write Courses directly into Courses tab
+      if (data.courses) {
+        var coursesSheet = ss.getSheetByName("Courses");
+        if (!coursesSheet) {
+          coursesSheet = ss.insertSheet("Courses");
+          coursesSheet.appendRow([
+            "Course Name", "Price", "Last Updated"
+          ]);
+          coursesSheet.getRange("A1:C1").setFontWeight("bold");
+        }
+        var lastRowC = coursesSheet.getLastRow();
+        if (lastRowC > 1) {
+          coursesSheet.getRange(2, 1, lastRowC - 1, 3).clearContent();
+        }
+        data.courses.forEach(function(c) {
+          coursesSheet.appendRow([
+            c.name,
+            c.price,
+            c.lastUpdated || Date.now()
+          ]);
+        });
+        coursesSheet.autoResizeColumns(1, 3);
+      }
     }
     
-    // 2. Save Daily Attendance records to the Attendance tab of your Attendance spreadsheet
+    // 2. Save Daily Attendance records to the Attendance tab
     if (syncAttendance) {
-      var attendSheet = ss.getSheetByName("Attendance") || ss.getSheetByName("Sheet1") || ss.getSheets()[0];
-      
-      // Clear all rows below the headers (row 2 onwards)
+      var attendSheet = ss.getSheetByName("Attendance");
+      if (!attendSheet) {
+        attendSheet = ss.insertSheet("Attendance");
+        attendSheet.appendRow([
+          "Staff ID", "Name", "Date", "Check-In", "Check-Out", "Status", "Remarks"
+        ]);
+        attendSheet.getRange("A1:G1").setFontWeight("bold");
+      }
       var lastRow = attendSheet.getLastRow();
       var lastCol = Math.max(1, attendSheet.getLastColumn());
       if (lastRow > 1) {
@@ -987,17 +1383,18 @@ function doPost(e) {
           var rec = records[staffId];
           var s = staffMap[staffId] || { name: "" };
           attendSheet.appendRow([
-            staffId,               // Column A: faculty id
-            s.name,                // Column B: name
-            dateStr,               // Column C: Attendance Date
-            rec.checkIn || "",     // Column D: check in time
-            rec.status,            // Column E: Attendance status
-            rec.remarks || ""      // Column F: Remarks
+            staffId,
+            s.name,
+            dateStr,
+            rec.checkIn || "",
+            rec.checkOut || "",
+            rec.status,
+            rec.remarks || ""
           ]);
         });
       });
-      attendSheet.getRange("A1:F1").setFontWeight("bold");
-      attendSheet.autoResizeColumns(1, 6);
+      attendSheet.getRange("A1:G1").setFontWeight("bold");
+      attendSheet.autoResizeColumns(1, 7);
     }
 
     var result = { success: true, message: "Sync operation completed successfully!" };
