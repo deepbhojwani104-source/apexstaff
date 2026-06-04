@@ -1411,16 +1411,18 @@
             const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
             const monthPayroll = state.payroll[monthKey] || {};
 
-            const activeStaff = state.staff.filter(s => s.status === "Active");
             const filtered = [];
-
-            activeStaff.forEach(emp => {
-                const record = monthPayroll[emp.id];
-                if (record) {
-                    const matchesStatus = status === "" || record.status === status;
-                    if (matchesStatus) {
-                        filtered.push({ emp, record });
-                    }
+            Object.keys(monthPayroll).forEach(staffId => {
+                const emp = state.staff.find(s => s.id === staffId) || {
+                    id: staffId,
+                    name: "Unknown Employee",
+                    department: "-",
+                    designation: "-"
+                };
+                const record = monthPayroll[staffId];
+                const matchesStatus = status === "" || record.status === status;
+                if (matchesStatus) {
+                    filtered.push({ emp, record });
                 }
             });
 

@@ -650,9 +650,6 @@ document.addEventListener("DOMContentLoaded", function() {
     let activeReportTab = "faculty";
 
     function refreshReports() {
-        if (activeReportTab === "students") {
-            populateReportCoursesFilter();
-        }
         AuraDOM.renderReportsHub(activeReportTab);
     }
 
@@ -1162,6 +1159,7 @@ document.addEventListener("DOMContentLoaded", function() {
             
             if (success) {
                 AuraDOM.showToast("Successfully synced databases with Google Sheets!", "success");
+                renderViewData(currentView);
             } else {
                 AuraDOM.showToast(`Sync failed: ${err}`, "error");
             }
@@ -1221,6 +1219,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 indicator.className = "sync-status-badge";
                 icon.textContent = "cloud_done";
                 text.textContent = "Cloud Synced";
+                renderViewData(currentView);
             } else {
                 indicator.className = "sync-status-badge error";
                 icon.textContent = "cloud_off";
