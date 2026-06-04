@@ -1307,4 +1307,419 @@
         if (totalDuesSpan) totalDuesSpan.textContent = `₹${totalDues.toLocaleString('en-IN')}`;
     };
 
+    AuraDOM.renderReportsHub = function(tab = "faculty") {
+        const state = AuraStore.getState();
+        const tbody = document.getElementById("reports-table-body");
+        const thead = document.getElementById("reports-table-header");
+        const metricsContainer = document.getElementById("reports-metrics-container");
+        if (!tbody || !thead || !metricsContainer) return;
+
+        tbody.innerHTML = "";
+        thead.innerHTML = "";
+        metricsContainer.innerHTML = "";
+
+        const userRole = AuraStore.getUserRole();
+        if (tab === "payroll" && userRole !== "admin") {
+            tab = "faculty";
+        }
+
+        if (tab === "faculty") {
+            const search = (document.getElementById("faculty-report-search")?.value || "").toLowerCase().trim();
+            const dept = document.getElementById("faculty-report-dept")?.value || "";
+            const status = document.getElementById("faculty-report-status")?.value || "";
+
+            const filtered = state.staff.filter(emp => {
+                const matchesSearch = search === "" ||
+                    emp.name.toLowerCase().includes(search) ||
+                    emp.id.toLowerCase().includes(search) ||
+                    emp.designation.toLowerCase().includes(search) ||
+                    (emp.phone && emp.phone.includes(search)) ||
+                    (emp.email && emp.email.toLowerCase().includes(search));
+                const matchesDept = dept === "" || emp.department === dept;
+                const matchesStatus = status === "" || emp.status === status;
+                return matchesSearch && matchesDept && matchesStatus;
+            });
+
+            thead.innerHTML = `
+                <tr>
+                    <th>Staff ID</th>
+                    <th>Name</th>
+                    <th>Department</th>
+                    <th>Designation</th>
+                    <th>Joining Date</th>
+                    <th>Status</th>
+                    <th>Mobile</th>
+                    <th>Email</th>
+                </tr>
+            `;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">No faculty records match the selected filters.</td></tr>`;
+            } else {
+                filtered.forEach(emp => {
+                    const statusClass = emp.status === "Active" ? "badge-success" : "badge-danger";
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td><strong>${emp.id}</strong></td>
+                        <td>${emp.name}</td>
+                        <td><span class="node-dept-pill">${emp.department}</span></td>
+                        <td>${emp.designation}</td>
+                        <td>${emp.joiningDate ? new Date(emp.joiningDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}</td>
+                        <td><span class="badge ${statusClass}">${emp.status}</span></td>
+                        <td>${emp.phone}</td>
+                        <td>${emp.email || '-'}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            const total = filtered.length;
+            const active = filtered.filter(e => e.status === "Active").length;
+            const inactive = total - active;
+
+            metricsContainer.innerHTML = `
+                <div style="background: rgba(99, 102, 241, 0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(99, 102, 241, 0.1); display: flex; flex-direction: column; min-width: 100px;">
+                    <span style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Total Faculty</span>
+                    <strong style="font-size: 14px; color: var(--color-primary);">${total}</strong>
+                </div>
+                <div style="background: rgba(16, 185, 129, 0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.1); display: flex; flex-direction: column; min-width: 100px;">
+                    <span style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Active</span>
+                    <strong style="font-size: 14px; color: var(--color-success);">${active}</strong>
+                </div>
+                <div style="background: rgba(239, 68, 68, 0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.1); display: flex; flex-direction: column; min-width: 100px;">
+                    <span style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Inactive</span>
+                    <strong style="font-size: 14px; color: var(--color-danger);">${inactive}</strong>
+                </div>
+            `;
+        } else if (tab === "payroll") {
+            const month = Number(document.getElementById("payroll-report-month")?.value || 0);
+            const year = Number(document.getElementById("payroll-report-year")?.value || 2026);
+            const status = document.getElementById("payroll-report-status")?.value || "";
+
+            const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+            const monthPayroll = state.payroll[monthKey] || {};
+
+            const activeStaff = state.staff.filter(s => s.status === "Active");
+            const filtered = [];
+
+            activeStaff.forEach(emp => {
+                const record = monthPayroll[emp.id];
+                if (record) {
+                    const matchesStatus = status === "" || record.status === status;
+                    if (matchesStatus) {
+                        filtered.push({ emp, record });
+                    }
+                }
+            });
+
+            thead.innerHTML = `
+                <tr>
+                    <th>Staff ID</th>
+                    <th>Name</th>
+                    <th>Department</th>
+                    <th>Designation</th>
+                    <th>Base Salary</th>
+                    <th>Allowances</th>
+                    <th>Manual Deduct</th>
+                    <th>Leave Deduct</th>
+                    <th>Net Payout</th>
+                    <th>Status</th>
+                </tr>
+            `;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted py-4">No payroll registers match the selected period/status.</td></tr>`;
+            } else {
+                filtered.forEach(({ emp, record }) => {
+                    const statusClass = record.status === "Paid" ? "badge-success" : "badge-warning";
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td><strong>${emp.id}</strong></td>
+                        <td>${emp.name}</td>
+                        <td><span class="node-dept-pill">${emp.department}</span></td>
+                        <td>${emp.designation}</td>
+                        <td>₹${record.baseSalary.toLocaleString('en-IN')}</td>
+                        <td>₹${record.allowances.toLocaleString('en-IN')}</td>
+                        <td>₹${record.deductions.toLocaleString('en-IN')}</td>
+                        <td class="${record.absentDeductions > 0 ? 'text-rose' : ''}">₹${record.absentDeductions.toLocaleString('en-IN')}</td>
+                        <td><strong>₹${record.netSalary.toLocaleString('en-IN')}</strong></td>
+                        <td><span class="badge ${statusClass}">${record.status}</span></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            let totalNet = 0;
+            let totalDeduct = 0;
+            let paidCount = 0;
+            filtered.forEach(({ record }) => {
+                totalNet += record.netSalary;
+                totalDeduct += (record.deductions + record.absentDeductions);
+                if (record.status === "Paid") paidCount++;
+            });
+
+            metricsContainer.innerHTML = `
+                <div style="background: rgba(99, 102, 241, 0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(99, 102, 241, 0.1); display: flex; flex-direction: column; min-width: 120px;">
+                    <span style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Total Net Payout</span>
+                    <strong style="font-size: 14px; color: var(--color-primary);">₹${totalNet.toLocaleString('en-IN')}</strong>
+                </div>
+                <div style="background: rgba(239, 68, 68, 0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.1); display: flex; flex-direction: column; min-width: 120px;">
+                    <span style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Total Deductions</span>
+                    <strong style="font-size: 14px; color: var(--color-danger);">₹${totalDeduct.toLocaleString('en-IN')}</strong>
+                </div>
+                <div style="background: rgba(16, 185, 129, 0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.1); display: flex; flex-direction: column; min-width: 120px;">
+                    <span style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Paid Registers</span>
+                    <strong style="font-size: 14px; color: var(--color-success);">${paidCount} / ${filtered.length}</strong>
+                </div>
+            `;
+        } else if (tab === "students") {
+            const search = (document.getElementById("student-report-search")?.value || "").toLowerCase().trim();
+            const course = document.getElementById("student-report-course")?.value || "all";
+            const duesFilter = document.getElementById("student-report-dues")?.value || "all";
+            const dueDateStr = document.getElementById("student-report-due-date")?.value || "";
+
+            const filtered = state.students.filter(s => {
+                const matchesSearch = search === "" ||
+                    s.name.toLowerCase().includes(search) ||
+                    s.id.toLowerCase().includes(search) ||
+                    (s.mobile && s.mobile.includes(search)) ||
+                    (s.remarks && s.remarks.toLowerCase().includes(search));
+
+                let matchesCourse = true;
+                if (course !== "all") {
+                    const coursesList = s.course ? s.course.split(", ") : [];
+                    matchesCourse = coursesList.includes(course);
+                }
+
+                const dueAmt = Math.max(0, s.courseFee - s.amountReceived);
+                let matchesDues = true;
+                if (duesFilter === "pending") {
+                    matchesDues = dueAmt > 0;
+                } else if (duesFilter === "paid") {
+                    matchesDues = dueAmt === 0;
+                }
+
+                let matchesDueDate = true;
+                if (dueDateStr !== "") {
+                    if (!s.dueDate) {
+                        matchesDueDate = false;
+                    } else {
+                        const studentTime = new Date(s.dueDate).getTime();
+                        const filterTime = new Date(dueDateStr).getTime();
+                        matchesDueDate = studentTime <= filterTime;
+                    }
+                }
+
+                return matchesSearch && matchesCourse && matchesDues && matchesDueDate;
+            });
+
+            thead.innerHTML = `
+                <tr>
+                    <th>Enrollment ID</th>
+                    <th>Name</th>
+                    <th>Mobile No</th>
+                    <th>Courses</th>
+                    <th>Course Fee</th>
+                    <th>Received</th>
+                    <th>Due Amount</th>
+                    <th>Due Date</th>
+                    <th>Remarks</th>
+                </tr>
+            `;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">No student records match the selected filters.</td></tr>`;
+            } else {
+                filtered.forEach(s => {
+                    const dueAmt = Math.max(0, s.courseFee - s.amountReceived);
+                    const dueDisplay = dueAmt > 0
+                        ? `<strong class="text-rose">₹${dueAmt.toLocaleString('en-IN')}</strong>`
+                        : `<span class="text-success" style="font-weight:600;">Paid</span>`;
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td><strong>${s.id}</strong></td>
+                        <td>${s.name}</td>
+                        <td>${s.mobile || '-'}</td>
+                        <td><span class="node-dept-pill" style="white-space: normal; text-align: left;">${s.course}</span></td>
+                        <td>₹${s.courseFee.toLocaleString('en-IN')}</td>
+                        <td>₹${s.amountReceived.toLocaleString('en-IN')}</td>
+                        <td>${dueDisplay}</td>
+                        <td>${s.dueDate ? new Date(s.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}</td>
+                        <td><span style="font-size: 12px; color: var(--text-secondary); max-width: 150px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${s.remarks || ''}">${s.remarks || '-'}</span></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            let totalExpected = 0;
+            let totalCollected = 0;
+            let totalDues = 0;
+            filtered.forEach(s => {
+                const due = Math.max(0, s.courseFee - s.amountReceived);
+                totalExpected += s.courseFee || 0;
+                totalCollected += s.amountReceived || 0;
+                totalDues += due;
+            });
+
+            metricsContainer.innerHTML = `
+                <div style="background: rgba(99, 102, 241, 0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(99, 102, 241, 0.1); display: flex; flex-direction: column; min-width: 110px;">
+                    <span style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Total Expected</span>
+                    <strong style="font-size: 14px; color: var(--color-primary);">₹${totalExpected.toLocaleString('en-IN')}</strong>
+                </div>
+                <div style="background: rgba(16, 185, 129, 0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.1); display: flex; flex-direction: column; min-width: 110px;">
+                    <span style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Total Received</span>
+                    <strong style="font-size: 14px; color: var(--color-success);">₹${totalCollected.toLocaleString('en-IN')}</strong>
+                </div>
+                <div style="background: rgba(239, 68, 68, 0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.1); display: flex; flex-direction: column; min-width: 110px;">
+                    <span style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Total Due</span>
+                    <strong style="font-size: 14px; color: var(--color-danger);">₹${totalDues.toLocaleString('en-IN')}</strong>
+                </div>
+            `;
+        }
+    };
+
+    AuraDOM.printReport = function(title, headers, rows) {
+        const branding = window.AuraStore ? window.AuraStore.getBranding() : {
+            name: "Samyak Computer Classes",
+            tagline: "Unlocking Academic Excellence",
+            email: "contact@samyak.edu",
+            phone: "9876543210",
+            address: "Above Pappu Restaurant, Chang Gate, Beawar"
+        };
+
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = '0';
+        document.body.appendChild(iframe);
+
+        const doc = iframe.contentWindow.document;
+        doc.open();
+
+        const thsHtml = headers.map(h => `<th>${h}</th>`).join("");
+        const trsHtml = rows.map(row => {
+            const tdsHtml = row.map(val => `<td>${val === null || val === undefined ? "" : val}</td>`).join("");
+            return `<tr>${tdsHtml}</tr>`;
+        }).join("");
+
+        doc.write(`
+            <html>
+            <head>
+                <title>${title}</title>
+                <style>
+                    body {
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        padding: 20px;
+                        color: #1e293b;
+                        background: #ffffff;
+                        margin: 0;
+                    }
+                    .report-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        border-bottom: 2px solid #e2e8f0;
+                        padding-bottom: 15px;
+                        margin-bottom: 20px;
+                    }
+                    .brand-details h1 {
+                        margin: 0 0 4px 0;
+                        color: #4f46e5;
+                        font-size: 20px;
+                        font-weight: 700;
+                    }
+                    .brand-details p {
+                        margin: 2px 0;
+                        color: #64748b;
+                        font-size: 11px;
+                    }
+                    .report-meta {
+                        text-align: right;
+                    }
+                    .report-meta h2 {
+                        margin: 0 0 4px 0;
+                        color: #1e293b;
+                        font-size: 16px;
+                        font-weight: 600;
+                    }
+                    .report-meta p {
+                        margin: 2px 0;
+                        color: #64748b;
+                        font-size: 11px;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 15px;
+                    }
+                    th, td {
+                        padding: 8px 10px;
+                        text-align: left;
+                        font-size: 11px;
+                        border-bottom: 1px solid #e2e8f0;
+                    }
+                    th {
+                        background-color: #f1f5f9;
+                        color: #475569;
+                        font-weight: 600;
+                    }
+                    tr:nth-child(even) {
+                        background-color: #f8fafc;
+                    }
+                    .footer {
+                        text-align: center;
+                        margin-top: 30px;
+                        font-size: 10px;
+                        color: #94a3b8;
+                        border-top: 1px solid #f1f5f9;
+                        padding-top: 10px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="report-header">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <img src="icons/logo.png" alt="Samyak Logo" style="height: 48px; border-radius: 4px;">
+                        <div class="brand-details">
+                            <h1>${branding.name.toUpperCase()}</h1>
+                            <p>${branding.tagline || ""}</p>
+                            <p>${branding.address}</p>
+                            <p>Phone: ${branding.phone} | Email: ${branding.email}</p>
+                        </div>
+                    </div>
+                    <div class="report-meta">
+                        <h2>${title}</h2>
+                        <p>Generated: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>${thsHtml}</tr>
+                    </thead>
+                    <tbody>
+                        ${trsHtml}
+                    </tbody>
+                </table>
+
+                <div class="footer">
+                    Computer generated document - samyak.edu
+                </div>
+                <script>
+                    window.onload = function() {
+                        window.print();
+                        setTimeout(function() {
+                            window.parent.document.body.removeChild(window.frameElement);
+                        }, 1000);
+                    }
+                <\/script>
+            </body>
+            </html>
+        `);
+        doc.close();
+    };
+
 })();

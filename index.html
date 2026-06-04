@@ -106,6 +106,10 @@
                     <span class="material-symbols-outlined">local_library</span>
                     <span>Student Enrollment</span>
                 </a>
+                <a href="#reports" class="menu-item" data-view="reports" id="menu-reports">
+                    <span class="material-symbols-outlined">analytics</span>
+                    <span>Reports Hub</span>
+                </a>
                 <a href="#settings" class="menu-item" data-view="settings">
                     <span class="material-symbols-outlined">settings</span>
                     <span>System Settings</span>
@@ -208,175 +212,41 @@
                     </div>
 
                     <!-- Dashboard Layout Columns -->
-                    <div class="dashboard-columns">
-                        <!-- Column Left: Charts & Graphs -->
-                        <div class="dashboard-col col-main">
-                            <div class="glass-card chart-container-card">
-                                <div class="card-header">
-                                    <h3>Staff Attendance Summary</h3>
-                                    <div class="card-header-actions">
-                                        <span class="badge badge-success">Live Tracking</span>
-                                    </div>
-                                </div>
-                                <div class="attendance-trend-preview">
-                                    <!-- A sleek custom CSS grid-based chart component -->
-                                    <div class="visual-progress-row">
-                                        <div class="progress-info">
-                                            <span>Active Operations & Duty Rate</span>
-                                            <span id="attendance-percentage-text">0%</span>
-                                        </div>
-                                        <div class="progress-track">
-                                            <div id="attendance-progress-bar" class="progress-fill" style="width: 0%"></div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="attendance-donuts-grid">
-                                        <div class="donut-card">
-                                            <div class="donut-circle p-present" id="donut-present-circle" style="--percent: 0;">
-                                                <div class="donut-inner" id="donut-present-val">0%</div>
-                                            </div>
-                                            <span class="donut-label">Present</span>
-                                        </div>
-                                        <div class="donut-card">
-                                            <div class="donut-circle p-late" id="donut-late-circle" style="--percent: 0;">
-                                                <div class="donut-inner" id="donut-late-val">0%</div>
-                                            </div>
-                                            <span class="donut-label">Late/Half Day</span>
-                                        </div>
-                                        <div class="donut-card">
-                                            <div class="donut-circle p-absent" id="donut-absent-circle" style="--percent: 0;">
-                                                <div class="donut-inner" id="donut-absent-val">0%</div>
-                                            </div>
-                                            <span class="donut-label">Absent/Leave</span>
-                                        </div>
-                                    </div>
-                                </div>
+                    <div class="dashboard-columns" style="grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));">
+                        <!-- Column Left: Shortcuts -->
+                        <div class="glass-card quick-actions-card">
+                            <div class="card-header">
+                                <h3>Quick Commands</h3>
                             </div>
-
-                            <div class="glass-card">
-                                <div class="card-header">
-                                    <h3>Staff by Department</h3>
-                                </div>
-                                <div class="dept-distribution-list" id="dept-list-container">
-                                    <!-- Dynamic contents loaded via JS -->
-                                </div>
+                            <div class="quick-commands-grid">
+                                <button class="command-tile" id="tile-add-staff">
+                                    <span class="material-symbols-outlined text-primary">person_add</span>
+                                    <span>Add Member</span>
+                                </button>
+                                <button class="command-tile" id="tile-mark-attendance">
+                                    <span class="material-symbols-outlined text-success">assignment_turned_in</span>
+                                    <span>Attendance</span>
+                                </button>
+                                <button class="command-tile" id="tile-payroll">
+                                    <span class="material-symbols-outlined text-info">account_balance_wallet</span>
+                                    <span>Process Pay</span>
+                                </button>
+                                <button class="command-tile" id="tile-settings">
+                                    <span class="material-symbols-outlined text-warning">database</span>
+                                    <span>Backup Hub</span>
+                                </button>
                             </div>
                         </div>
 
-                        <!-- Column Right: Shortcuts & Logs -->
-                        <div class="dashboard-col col-side">
-                            <div class="glass-card quick-actions-card">
-                                <div class="card-header">
-                                    <h3>Quick Commands</h3>
-                                </div>
-                                <div class="quick-commands-grid">
-                                    <button class="command-tile" id="tile-add-staff">
-                                        <span class="material-symbols-outlined text-primary">person_add</span>
-                                        <span>Add Member</span>
-                                    </button>
-                                    <button class="command-tile" id="tile-mark-attendance">
-                                        <span class="material-symbols-outlined text-success">assignment_turned_in</span>
-                                        <span>Attendance</span>
-                                    </button>
-                                    <button class="command-tile" id="tile-payroll">
-                                        <span class="material-symbols-outlined text-info">account_balance_wallet</span>
-                                        <span>Process Pay</span>
-                                    </button>
-                                    <button class="command-tile" id="tile-settings">
-                                        <span class="material-symbols-outlined text-warning">database</span>
-                                        <span>Backup Hub</span>
-                                    </button>
-                                </div>
+                        <!-- Column Right: Recent Logs -->
+                        <div class="glass-card log-card">
+                            <div class="card-header">
+                                <h3>Recent System Logs</h3>
+                                <button class="btn-text" id="btn-clear-logs">Clear</button>
                             </div>
-
-                            <div class="glass-card log-card">
-                                <div class="card-header">
-                                    <h3>Recent System Logs</h3>
-                                    <button class="btn-text" id="btn-clear-logs">Clear</button>
-                                </div>
-                                <div class="activity-timeline" id="recent-activity-list">
-                                    <!-- Dynamic logs go here -->
-                                </div>
+                            <div class="activity-timeline" id="recent-activity-list">
+                                <!-- Dynamic logs go here -->
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- Dynamic Student Enrollment Dues Report -->
-                    <div class="glass-card" style="margin-top: 24px;">
-                        <div class="card-header" style="display: flex; flex-direction: column; gap: 12px; align-items: stretch;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <img src="icons/logo.png" alt="Logo" style="height: 24px; border-radius: 2px;">
-                                    <h3 style="margin: 0;">Student Enrollment & Dues Report</h3>
-                                </div>
-                                <span class="badge badge-info" id="report-total-count">0 Enrolled</span>
-                            </div>
-                            
-                            <!-- Filters Toolbar -->
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; background: rgba(255, 255, 255, 0.02); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--color-border);">
-                                <div class="form-group" style="margin:0;">
-                                    <label style="font-size:11px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Search Name / ID</label>
-                                    <input type="text" id="report-search" placeholder="Search by name or ID..." style="padding: 6px 10px; font-size:12.5px;">
-                                </div>
-                                <div class="form-group" style="margin:0;">
-                                    <label style="font-size:11px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Filter Course</label>
-                                    <div class="filter-select">
-                                        <select id="report-filter-course" style="padding: 6px 10px; font-size:12.5px; height: 33px;">
-                                            <!-- Dynamically populated courses -->
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="form-group" style="margin:0;">
-                                    <label style="font-size:11px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Filter Dues</label>
-                                    <div class="filter-select">
-                                        <select id="report-filter-dues" style="padding: 6px 10px; font-size:12.5px; height: 33px;">
-                                            <option value="all">All Dues</option>
-                                            <option value="pending">Pending Dues (Due &gt; 0)</option>
-                                            <option value="paid">Fully Paid (Due = 0)</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="form-group" style="margin:0;">
-                                    <label style="font-size:11px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Dues On / Before Date</label>
-                                    <input type="date" id="report-filter-due-date" style="padding: 6px 10px; font-size:12.5px; line-height:1; height: 33px;">
-                                </div>
-                            </div>
-
-                            <!-- Dues metrics sub-row -->
-                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center; margin-top: 5px;">
-                                <div style="background: rgba(99, 102, 241, 0.05); padding: 8px; border-radius: 6px; border: 1px solid rgba(99, 102, 241, 0.1);">
-                                    <div style="font-size:11px; color: var(--text-secondary); margin-bottom: 2px;">Total Fees</div>
-                                    <strong id="report-metric-total" style="font-size:14px; color: var(--color-primary);">₹0</strong>
-                                </div>
-                                <div style="background: rgba(16, 185, 129, 0.05); padding: 8px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.1);">
-                                    <div style="font-size:11px; color: var(--text-secondary); margin-bottom: 2px;">Total Received</div>
-                                    <strong id="report-metric-received" style="font-size:14px; color: var(--color-success);">₹0</strong>
-                                </div>
-                                <div style="background: rgba(239, 68, 68, 0.05); padding: 8px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.1);">
-                                    <div style="font-size:11px; color: var(--text-secondary); margin-bottom: 2px;">Total Due</div>
-                                    <strong id="report-metric-due" style="font-size:14px; color: var(--color-danger);">₹0</strong>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="settings-card-body table-responsive-container" style="margin-top: 15px;">
-                            <table class="data-table" id="report-students-table">
-                                <thead>
-                                    <tr>
-                                        <th>Enrollment ID</th>
-                                        <th>Name</th>
-                                        <th>Mobile No</th>
-                                        <th>Courses</th>
-                                        <th>Course Fees</th>
-                                        <th>Amount Received</th>
-                                        <th>Due Amount</th>
-                                        <th>Due Date</th>
-                                        <th>Remarks</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="report-students-body">
-                                    <!-- Dynamic rows from report filtering -->
-                                </tbody>
-                            </table>
                         </div>
                     </div>
                 </section>
@@ -750,6 +620,162 @@
                             </div>
                         </div>
 
+                    </div>
+                </section>
+
+                <!-- View: Reports Hub -->
+                <section id="view-reports" class="page-view hide">
+                    <!-- Segmented Tabs -->
+                    <div class="reports-tabs-bar" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--color-border); padding-bottom: 10px;">
+                        <button class="btn btn-primary report-tab-btn" id="report-tab-faculty" data-tab="faculty">
+                            <span class="material-symbols-outlined">badge</span>
+                            <span>Faculty Directory</span>
+                        </button>
+                        <button class="btn btn-outline report-tab-btn" id="report-tab-payroll" data-tab="payroll">
+                            <span class="material-symbols-outlined">payments</span>
+                            <span>Payroll Ledger</span>
+                        </button>
+                        <button class="btn btn-outline report-tab-btn" id="report-tab-students" data-tab="students">
+                            <span class="material-symbols-outlined">local_library</span>
+                            <span>Student Enrollment</span>
+                        </button>
+                    </div>
+
+                    <!-- Filters Panel -->
+                    <div class="glass-card" style="margin-bottom: 20px; padding: 15px;">
+                        <!-- Faculty Filters -->
+                        <div id="filter-group-faculty" class="filter-group-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                            <div class="form-group" style="margin:0;">
+                                <label style="font-size:11px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Search Faculty</label>
+                                <input type="text" id="faculty-report-search" placeholder="Search by name, ID..." style="padding: 6px 10px; font-size:12.5px; height: 33px;">
+                            </div>
+                            <div class="form-group" style="margin:0;">
+                                <label style="font-size:11px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Department</label>
+                                <div class="filter-select">
+                                    <select id="faculty-report-dept" style="padding: 6px 10px; font-size:12.5px; height: 33px;">
+                                        <option value="">All Departments</option>
+                                        <option value="Teaching">Teaching</option>
+                                        <option value="Administration">Administration</option>
+                                        <option value="Support">Support</option>
+                                        <option value="Marketing">Marketing</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin:0;">
+                                <label style="font-size:11px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Status</label>
+                                <div class="filter-select">
+                                    <select id="faculty-report-status" style="padding: 6px 10px; font-size:12.5px; height: 33px;">
+                                        <option value="">All Statuses</option>
+                                        <option value="Active">Active</option>
+                                        <option value="Inactive">Inactive</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Payroll Filters -->
+                        <div id="filter-group-payroll" class="filter-group-row hide" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                            <div class="form-group" style="margin:0;">
+                                <label style="font-size:11px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Month</label>
+                                <div class="filter-select">
+                                    <select id="payroll-report-month" style="padding: 6px 10px; font-size:12.5px; height: 33px;">
+                                        <option value="0">January</option>
+                                        <option value="1">February</option>
+                                        <option value="2">March</option>
+                                        <option value="3">April</option>
+                                        <option value="4">May</option>
+                                        <option value="5">June</option>
+                                        <option value="6">July</option>
+                                        <option value="7">August</option>
+                                        <option value="8">September</option>
+                                        <option value="9">October</option>
+                                        <option value="10">November</option>
+                                        <option value="11">December</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin:0;">
+                                <label style="font-size:11px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Year</label>
+                                <div class="filter-select">
+                                    <select id="payroll-report-year" style="padding: 6px 10px; font-size:12.5px; height: 33px;">
+                                        <option value="2026">2026</option>
+                                        <option value="2027">2027</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin:0;">
+                                <label style="font-size:11px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Status</label>
+                                <div class="filter-select">
+                                    <select id="payroll-report-status" style="padding: 6px 10px; font-size:12.5px; height: 33px;">
+                                        <option value="">All Statuses</option>
+                                        <option value="Paid">Paid</option>
+                                        <option value="Pending">Pending</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Student Filters -->
+                        <div id="filter-group-students" class="filter-group-row hide" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+                            <div class="form-group" style="margin:0;">
+                                <label style="font-size:11px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Search Student</label>
+                                <input type="text" id="student-report-search" placeholder="Search by name, ID..." style="padding: 6px 10px; font-size:12.5px; height: 33px;">
+                            </div>
+                            <div class="form-group" style="margin:0;">
+                                <label style="font-size:11px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Course</label>
+                                <div class="filter-select">
+                                    <select id="student-report-course" style="padding: 6px 10px; font-size:12.5px; height: 33px;">
+                                        <!-- Dynamic courses -->
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin:0;">
+                                <label style="font-size:11px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Dues Filter</label>
+                                <div class="filter-select">
+                                    <select id="student-report-dues" style="padding: 6px 10px; font-size:12.5px; height: 33px;">
+                                        <option value="all">All Dues</option>
+                                        <option value="pending">Pending Dues (Due &gt; 0)</option>
+                                        <option value="paid">Fully Paid (Due = 0)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin:0;">
+                                <label style="font-size:11px; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Dues On/Before</label>
+                                <input type="date" id="student-report-due-date" style="padding: 6px 10px; font-size:12.5px; line-height:1; height: 33px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Metrics & Exports Toolbar -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; gap: 15px; flex-wrap: wrap;">
+                        <!-- Dynamic Metric summary row -->
+                        <div id="reports-metrics-container" style="display: flex; gap: 12px; flex-grow: 1; flex-wrap: wrap;">
+                            <!-- Injected dynamically -->
+                        </div>
+                        
+                        <!-- Export buttons -->
+                        <div style="display: flex; gap: 10px;">
+                            <button id="btn-report-export-excel" class="btn btn-secondary btn-icon-text">
+                                <span class="material-symbols-outlined">download</span>
+                                <span>Export Excel</span>
+                            </button>
+                            <button id="btn-report-print-pdf" class="btn btn-primary btn-icon-text">
+                                <span class="material-symbols-outlined">print</span>
+                                <span>Print PDF</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Data Table -->
+                    <div class="glass-card table-responsive-container" style="padding:0;">
+                        <table class="data-table" id="reports-table">
+                            <thead id="reports-table-header">
+                                <!-- Dynamically populated headers -->
+                            </thead>
+                            <tbody id="reports-table-body">
+                                <!-- Dynamically populated rows -->
+                            </tbody>
+                        </table>
                     </div>
                 </section>
 

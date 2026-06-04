@@ -74,7 +74,8 @@ document.addEventListener("DOMContentLoaded", function() {
         attendance: "Daily Attendance Log",
         payroll: "Payroll Hub",
         students: "Student Enrollment Hub",
-        settings: "System Settings"
+        settings: "System Settings",
+        reports: "Reports Hub"
     };
 
     function switchView(targetView) {
@@ -118,7 +119,6 @@ document.addEventListener("DOMContentLoaded", function() {
     function renderViewData(viewName) {
         if (viewName === "dashboard") {
             AuraDOM.renderDashboard();
-            updateDashboardReport();
         } else if (viewName === "directory") {
             refreshDirectory();
         } else if (viewName === "attendance") {
@@ -129,6 +129,8 @@ document.addEventListener("DOMContentLoaded", function() {
             refreshStudents();
         } else if (viewName === "settings") {
             loadSettingsValues();
+        } else if (viewName === "reports") {
+            refreshReports();
         }
     }
 
@@ -619,8 +621,37 @@ document.addEventListener("DOMContentLoaded", function() {
     // ==========================================================================
     // 7.5 Student Enrollment & Course Master Actions
     // ==========================================================================
+    AuraStore.downloadExcelReport = function(filename, headers, rows) {
+        let csvContent = "\uFEFF";
+        csvContent += headers.map(h => `"${h.replace(/"/g, '""')}"`).join(",") + "\n";
+        rows.forEach(row => {
+            csvContent += row.map(val => {
+                const str = (val === null || val === undefined) ? "" : String(val);
+                return `"${str.replace(/"/g, '""')}"`;
+            }).join(",") + "\n";
+        });
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    let activeReportTab = "faculty";
+
+    function refreshReports() {
+        if (activeReportTab === "students") {
+            populateReportCoursesFilter();
+        }
+        AuraDOM.renderReportsHub(activeReportTab);
+    }
+
     function populateReportCoursesFilter() {
-        const filterSelect = $("#report-filter-course");
+        const filterSelect = $("#student-report-course") || $("#report-filter-course");
         if (!filterSelect) return;
         
         const courses = AuraStore.getCourses();
@@ -1227,16 +1258,36 @@ document.addEventListener("DOMContentLoaded", function() {
             $("#tile-payroll").classList.remove("hide");
             $("#section-salary-banking-header").classList.remove("hide");
             $("#section-salary-banking-fields").classList.remove("hide");
+            $("#report-tab-payroll").classList.remove("hide");
         } else {
             $("#menu-payroll").classList.add("hide");
             $("#card-payroll-stat").classList.add("hide");
             $("#tile-payroll").classList.add("hide");
             $("#section-salary-banking-header").classList.add("hide");
             $("#section-salary-banking-fields").classList.add("hide");
+            $("#report-tab-payroll").classList.add("hide");
             
             // Redirect to dashboard if clerk somehow lands on payroll view
             if (currentView === "payroll") {
                 switchView("dashboard");
+            }
+
+            if (activeReportTab === "payroll") {
+                activeReportTab = "faculty";
+                const tabFac = $("#report-tab-faculty");
+                if (tabFac) {
+                    $$(".report-tab-btn").forEach(b => {
+                        b.classList.remove("btn-primary");
+                        b.classList.add("btn-outline");
+                    });
+                    tabFac.classList.add("btn-primary");
+                    tabFac.classList.remove("btn-outline");
+                }
+                const fgFac = $("#filter-group-faculty");
+                if (fgFac) {
+                    $$(".filter-group-row").forEach(fg => fg.classList.add("hide"));
+                    fgFac.classList.remove("hide");
+                }
             }
         }
     }
@@ -1252,18 +1303,86 @@ document.addEventListener("DOMContentLoaded", function() {
         
         // Populate report courses and render dashboard report
         populateReportCoursesFilter();
-        updateDashboardReport();
         
-        // Bind Dashboard student report filter listeners
-        const reportSearch = $("#report-search");
-        const reportFilterCourse = $("#report-filter-course");
-        const reportFilterDues = $("#report-filter-dues");
-        const reportFilterDueDate = $("#report-filter-due-date");
+        // Bind Reports Hub Tab Clicks
+        $$(".report-tab-btn").forEach(btn => {
+            btn.addEventListener("click", function() {
+                const targetTab = this.dataset.tab;
+                
+                $$(".report-tab-btn").forEach(b => {
+                    b.classList.remove("btn-primary");
+                    b.classList.add("btn-outline");
+                });
+                this.classList.add("btn-primary");
+                this.classList.remove("btn-outline");
+                
+                $$(".filter-group-row").forEach(fg => fg.classList.add("hide"));
+                $(`#filter-group-${targetTab}`).classList.remove("hide");
+                
+                activeReportTab = targetTab;
+                refreshReports();
+            });
+        });
 
-        if (reportSearch) reportSearch.addEventListener("input", updateDashboardReport);
-        if (reportFilterCourse) reportFilterCourse.addEventListener("change", updateDashboardReport);
-        if (reportFilterDues) reportFilterDues.addEventListener("change", updateDashboardReport);
-        if (reportFilterDueDate) reportFilterDueDate.addEventListener("change", updateDashboardReport);
+        // Bind Reports Filters
+        const bindFilter = (id, event = "change") => {
+            const el = $(id);
+            if (el) el.addEventListener(event, () => refreshReports());
+        };
+        bindFilter("#faculty-report-search", "input");
+        bindFilter("#faculty-report-dept", "change");
+        bindFilter("#faculty-report-status", "change");
+        
+        bindFilter("#payroll-report-month", "change");
+        bindFilter("#payroll-report-year", "change");
+        bindFilter("#payroll-report-status", "change");
+        
+        bindFilter("#student-report-search", "input");
+        bindFilter("#student-report-course", "change");
+        bindFilter("#student-report-dues", "change");
+        bindFilter("#student-report-due-date", "change");
+
+        // Bind Reports Exports
+        const btnExcel = $("#btn-report-export-excel");
+        if (btnExcel) {
+            btnExcel.addEventListener("click", () => {
+                const headers = Array.from(document.querySelectorAll("#reports-table-header th")).map(th => th.textContent.trim());
+                const rows = Array.from(document.querySelectorAll("#reports-table-body tr")).map(tr => {
+                    const tds = Array.from(tr.querySelectorAll("td"));
+                    if (tds.length === 1 && tr.querySelector(".text-center")) return null;
+                    return tds.map(td => td.textContent.trim());
+                }).filter(r => r !== null);
+
+                if (rows.length === 0) {
+                    AuraDOM.showToast("No data to export.", "error");
+                    return;
+                }
+
+                const filename = `samyak_${activeReportTab}_report_${new Date().toISOString().split('T')[0]}.csv`;
+                AuraStore.downloadExcelReport(filename, headers, rows);
+                AuraDOM.showToast("Report exported successfully", "success");
+            });
+        }
+
+        const btnPdf = $("#btn-report-print-pdf");
+        if (btnPdf) {
+            btnPdf.addEventListener("click", () => {
+                const headers = Array.from(document.querySelectorAll("#reports-table-header th")).map(th => th.textContent.trim());
+                const rows = Array.from(document.querySelectorAll("#reports-table-body tr")).map(tr => {
+                    const tds = Array.from(tr.querySelectorAll("td"));
+                    if (tds.length === 1 && tr.querySelector(".text-center")) return null;
+                    return tds.map(td => td.textContent.trim());
+                }).filter(r => r !== null);
+
+                if (rows.length === 0) {
+                    AuraDOM.showToast("No data to print.", "error");
+                    return;
+                }
+
+                const title = `${activeReportTab.charAt(0).toUpperCase() + activeReportTab.slice(1)} Report`;
+                AuraDOM.printReport(title, headers, rows);
+            });
+        }
 
         triggerAutoSync();
 
