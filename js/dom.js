@@ -10,6 +10,12 @@
     // Shorthand query helper
     const $ = selector => document.querySelector(selector);
 
+    const robustDateString = (dStr, formatOpts = { day: 'numeric', month: 'short', year: 'numeric' }, fallback = '-') => {
+        if (!dStr) return fallback;
+        const d = new Date(dStr);
+        return isNaN(d.getTime()) ? fallback : d.toLocaleDateString('en-GB', formatOpts);
+    };
+
     // ==========================================================================
     // 1. Dashboard View Renderer
     // ==========================================================================
@@ -561,7 +567,7 @@
                     </div>
                     <div class="detail-info-row">
                         <strong>Joining Date</strong>
-                        <span>${new Date(emp.joiningDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        <span>${robustDateString(emp.joiningDate)}</span>
                     </div>
                 </div>
 
@@ -894,19 +900,19 @@
                 `;
             } else {
                 students.forEach(s => {
-                    const dueAmt = Math.max(0, s.courseFee - s.amountReceived);
+                    const dueAmt = Math.max(0, Number(s.courseFee || 0) - Number(s.amountReceived || 0));
                     const dueDisplay = dueAmt > 0 ? `<strong class="text-rose">₹${dueAmt.toLocaleString('en-IN')}</strong>` : `<span class="text-success" style="font-weight:600;">Paid</span>`;
                     
                     const tr = document.createElement("tr");
                     tr.innerHTML = `
-                        <td><strong>${s.id}</strong></td>
-                        <td>${s.name}</td>
+                        <td><strong>${s.id || ''}</strong></td>
+                        <td>${s.name || ''}</td>
                         <td>${s.mobile || '-'}</td>
-                        <td><span class="node-dept-pill" style="white-space: normal; text-align: left;">${s.course}</span></td>
-                        <td>₹${s.courseFee.toLocaleString('en-IN')}</td>
-                        <td>₹${s.amountReceived.toLocaleString('en-IN')}</td>
+                        <td><span class="node-dept-pill" style="white-space: normal; text-align: left;">${s.course || ''}</span></td>
+                        <td>₹${Number(s.courseFee || 0).toLocaleString('en-IN')}</td>
+                        <td>₹${Number(s.amountReceived || 0).toLocaleString('en-IN')}</td>
                         <td>${dueDisplay}</td>
-                        <td>${s.dueDate ? new Date(s.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}</td>
+                        <td>${robustDateString(s.dueDate)}</td>
                         <td>
                             ${s.feeType ? s.feeType.map(t => `<span class="badge badge-info" style="font-size:10px; margin: 1px;">${t}</span>`).join('') : ''}
                         </td>
@@ -974,10 +980,10 @@
             address: "Above Pappu Restaurant, Chang Gate, Beawar"
         };
 
-        const dueAmt = Math.max(0, student.courseFee - student.amountReceived);
+        const dueAmt = Math.max(0, Number(student.courseFee || 0) - Number(student.amountReceived || 0));
         const receiptNo = "REC-" + Date.now().toString().slice(-6);
         const receiptDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        const dueDateDisplay = student.dueDate ? new Date(student.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A';
+        const dueDateDisplay = robustDateString(student.dueDate, { day: '2-digit', month: '2-digit', year: 'numeric' }, 'N/A');
 
         const iframe = document.createElement('iframe');
         iframe.style.position = 'fixed';
@@ -1266,9 +1272,9 @@
             `;
         } else {
             filteredStudents.forEach(s => {
-                const dueAmt = Math.max(0, s.courseFee - s.amountReceived);
-                totalExpected += s.courseFee || 0;
-                totalCollected += s.amountReceived || 0;
+                const dueAmt = Math.max(0, Number(s.courseFee || 0) - Number(s.amountReceived || 0));
+                totalExpected += Number(s.courseFee || 0);
+                totalCollected += Number(s.amountReceived || 0);
                 totalDues += dueAmt;
 
                 const tr = document.createElement("tr");
@@ -1277,14 +1283,14 @@
                     : `<span class="text-success" style="font-weight:600;">Paid</span>`;
 
                 tr.innerHTML = `
-                    <td><strong>${s.id}</strong></td>
-                    <td>${s.name}</td>
+                    <td><strong>${s.id || ''}</strong></td>
+                    <td>${s.name || ''}</td>
                     <td>${s.mobile || '-'}</td>
-                    <td><span class="node-dept-pill" style="white-space: normal; text-align: left;">${s.course}</span></td>
-                    <td>₹${s.courseFee.toLocaleString('en-IN')}</td>
-                    <td>₹${s.amountReceived.toLocaleString('en-IN')}</td>
+                    <td><span class="node-dept-pill" style="white-space: normal; text-align: left;">${s.course || ''}</span></td>
+                    <td>₹${Number(s.courseFee || 0).toLocaleString('en-IN')}</td>
+                    <td>₹${Number(s.amountReceived || 0).toLocaleString('en-IN')}</td>
                     <td>${dueDisplay}</td>
-                    <td>${s.dueDate ? new Date(s.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}</td>
+                    <td>${robustDateString(s.dueDate)}</td>
                     <td><span style="font-size: 12px; color: var(--text-secondary); max-width: 150px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${s.remarks || ''}">${s.remarks || '-'}</span></td>
                 `;
                 listBody.appendChild(tr);
@@ -1329,12 +1335,18 @@
             const status = document.getElementById("faculty-report-status")?.value || "";
 
             const filtered = state.staff.filter(emp => {
+                const empName = emp.name ? String(emp.name).toLowerCase() : "";
+                const empId = emp.id ? String(emp.id).toLowerCase() : "";
+                const empDesignation = emp.designation ? String(emp.designation).toLowerCase() : "";
+                const empPhone = emp.phone ? String(emp.phone) : "";
+                const empEmail = emp.email ? String(emp.email).toLowerCase() : "";
+
                 const matchesSearch = search === "" ||
-                    emp.name.toLowerCase().includes(search) ||
-                    emp.id.toLowerCase().includes(search) ||
-                    emp.designation.toLowerCase().includes(search) ||
-                    (emp.phone && emp.phone.includes(search)) ||
-                    (emp.email && emp.email.toLowerCase().includes(search));
+                    empName.includes(search) ||
+                    empId.includes(search) ||
+                    empDesignation.includes(search) ||
+                    empPhone.includes(search) ||
+                    empEmail.includes(search);
                 const matchesDept = dept === "" || emp.department === dept;
                 const matchesStatus = status === "" || emp.status === status;
                 return matchesSearch && matchesDept && matchesStatus;
@@ -1360,13 +1372,13 @@
                     const statusClass = emp.status === "Active" ? "badge-success" : "badge-danger";
                     const tr = document.createElement("tr");
                     tr.innerHTML = `
-                        <td><strong>${emp.id}</strong></td>
-                        <td>${emp.name}</td>
-                        <td><span class="node-dept-pill">${emp.department}</span></td>
-                        <td>${emp.designation}</td>
-                        <td>${emp.joiningDate ? new Date(emp.joiningDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}</td>
-                        <td><span class="badge ${statusClass}">${emp.status}</span></td>
-                        <td>${emp.phone}</td>
+                        <td><strong>${emp.id || ''}</strong></td>
+                        <td>${emp.name || ''}</td>
+                        <td><span class="node-dept-pill">${emp.department || ''}</span></td>
+                        <td>${emp.designation || ''}</td>
+                        <td>${robustDateString(emp.joiningDate)}</td>
+                        <td><span class="badge ${statusClass}">${emp.status || ''}</span></td>
+                        <td>${emp.phone || ''}</td>
                         <td>${emp.email || '-'}</td>
                     `;
                     tbody.appendChild(tr);
@@ -1434,16 +1446,16 @@
                     const statusClass = record.status === "Paid" ? "badge-success" : "badge-warning";
                     const tr = document.createElement("tr");
                     tr.innerHTML = `
-                        <td><strong>${emp.id}</strong></td>
-                        <td>${emp.name}</td>
-                        <td><span class="node-dept-pill">${emp.department}</span></td>
-                        <td>${emp.designation}</td>
-                        <td>₹${record.baseSalary.toLocaleString('en-IN')}</td>
-                        <td>₹${record.allowances.toLocaleString('en-IN')}</td>
-                        <td>₹${record.deductions.toLocaleString('en-IN')}</td>
-                        <td class="${record.absentDeductions > 0 ? 'text-rose' : ''}">₹${record.absentDeductions.toLocaleString('en-IN')}</td>
-                        <td><strong>₹${record.netSalary.toLocaleString('en-IN')}</strong></td>
-                        <td><span class="badge ${statusClass}">${record.status}</span></td>
+                        <td><strong>${emp.id || ''}</strong></td>
+                        <td>${emp.name || ''}</td>
+                        <td><span class="node-dept-pill">${emp.department || ''}</span></td>
+                        <td>${emp.designation || ''}</td>
+                        <td>₹${Number(record.baseSalary || 0).toLocaleString('en-IN')}</td>
+                        <td>₹${Number(record.allowances || 0).toLocaleString('en-IN')}</td>
+                        <td>₹${Number(record.deductions || 0).toLocaleString('en-IN')}</td>
+                        <td class="${Number(record.absentDeductions || 0) > 0 ? 'text-rose' : ''}">₹${Number(record.absentDeductions || 0).toLocaleString('en-IN')}</td>
+                        <td><strong>₹${Number(record.netSalary || 0).toLocaleString('en-IN')}</strong></td>
+                        <td><span class="badge ${statusClass}">${record.status || ''}</span></td>
                     `;
                     tbody.appendChild(tr);
                 });
@@ -1453,8 +1465,8 @@
             let totalDeduct = 0;
             let paidCount = 0;
             filtered.forEach(({ record }) => {
-                totalNet += record.netSalary;
-                totalDeduct += (record.deductions + record.absentDeductions);
+                totalNet += Number(record.netSalary || 0);
+                totalDeduct += (Number(record.deductions || 0) + Number(record.absentDeductions || 0));
                 if (record.status === "Paid") paidCount++;
             });
 
@@ -1479,11 +1491,16 @@
             const dueDateStr = document.getElementById("student-report-due-date")?.value || "";
 
             const filtered = state.students.filter(s => {
+                const sName = s.name ? String(s.name).toLowerCase() : "";
+                const sId = s.id ? String(s.id).toLowerCase() : "";
+                const sMobile = s.mobile ? String(s.mobile) : "";
+                const sRemarks = s.remarks ? String(s.remarks).toLowerCase() : "";
+
                 const matchesSearch = search === "" ||
-                    s.name.toLowerCase().includes(search) ||
-                    s.id.toLowerCase().includes(search) ||
-                    (s.mobile && s.mobile.includes(search)) ||
-                    (s.remarks && s.remarks.toLowerCase().includes(search));
+                    sName.includes(search) ||
+                    sId.includes(search) ||
+                    sMobile.includes(search) ||
+                    sRemarks.includes(search);
 
                 let matchesCourse = true;
                 if (course !== "all") {
@@ -1491,7 +1508,7 @@
                     matchesCourse = coursesList.includes(course);
                 }
 
-                const dueAmt = Math.max(0, s.courseFee - s.amountReceived);
+                const dueAmt = Math.max(0, Number(s.courseFee || 0) - Number(s.amountReceived || 0));
                 let matchesDues = true;
                 if (duesFilter === "pending") {
                     matchesDues = dueAmt > 0;
@@ -1506,7 +1523,7 @@
                     } else {
                         const studentTime = new Date(s.dueDate).getTime();
                         const filterTime = new Date(dueDateStr).getTime();
-                        matchesDueDate = studentTime <= filterTime;
+                        matchesDueDate = !isNaN(studentTime) && studentTime <= filterTime;
                     }
                 }
 
@@ -1531,20 +1548,20 @@
                 tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">No student records match the selected filters.</td></tr>`;
             } else {
                 filtered.forEach(s => {
-                    const dueAmt = Math.max(0, s.courseFee - s.amountReceived);
+                    const dueAmt = Math.max(0, Number(s.courseFee || 0) - Number(s.amountReceived || 0));
                     const dueDisplay = dueAmt > 0
                         ? `<strong class="text-rose">₹${dueAmt.toLocaleString('en-IN')}</strong>`
                         : `<span class="text-success" style="font-weight:600;">Paid</span>`;
                     const tr = document.createElement("tr");
                     tr.innerHTML = `
-                        <td><strong>${s.id}</strong></td>
-                        <td>${s.name}</td>
+                        <td><strong>${s.id || ''}</strong></td>
+                        <td>${s.name || ''}</td>
                         <td>${s.mobile || '-'}</td>
-                        <td><span class="node-dept-pill" style="white-space: normal; text-align: left;">${s.course}</span></td>
-                        <td>₹${s.courseFee.toLocaleString('en-IN')}</td>
-                        <td>₹${s.amountReceived.toLocaleString('en-IN')}</td>
+                        <td><span class="node-dept-pill" style="white-space: normal; text-align: left;">${s.course || ''}</span></td>
+                        <td>₹${Number(s.courseFee || 0).toLocaleString('en-IN')}</td>
+                        <td>₹${Number(s.amountReceived || 0).toLocaleString('en-IN')}</td>
                         <td>${dueDisplay}</td>
-                        <td>${s.dueDate ? new Date(s.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}</td>
+                        <td>${robustDateString(s.dueDate)}</td>
                         <td><span style="font-size: 12px; color: var(--text-secondary); max-width: 150px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${s.remarks || ''}">${s.remarks || '-'}</span></td>
                     `;
                     tbody.appendChild(tr);
@@ -1555,9 +1572,9 @@
             let totalCollected = 0;
             let totalDues = 0;
             filtered.forEach(s => {
-                const due = Math.max(0, s.courseFee - s.amountReceived);
-                totalExpected += s.courseFee || 0;
-                totalCollected += s.amountReceived || 0;
+                const due = Math.max(0, Number(s.courseFee || 0) - Number(s.amountReceived || 0));
+                totalExpected += Number(s.courseFee || 0);
+                totalCollected += Number(s.amountReceived || 0);
                 totalDues += due;
             });
 

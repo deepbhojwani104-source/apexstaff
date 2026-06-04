@@ -484,6 +484,12 @@ document.addEventListener("DOMContentLoaded", function() {
         $("#payroll-month").value = currentPayrollMonth;
         $("#payroll-year").value = currentPayrollYear;
         
+        // Also initialize payroll reports filters to matching current period
+        const repMonth = $("#payroll-report-month");
+        const repYear = $("#payroll-report-year");
+        if (repMonth) repMonth.value = currentPayrollMonth;
+        if (repYear) repYear.value = currentPayrollYear;
+        
         // Auto process calculations on first view to ensure data exists
         AuraStore.calculatePayrollForMonth(currentPayrollYear, currentPayrollMonth);
         AuraDOM.renderPayrollTable(currentPayrollYear, currentPayrollMonth);
