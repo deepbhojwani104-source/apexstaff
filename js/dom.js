@@ -80,8 +80,10 @@
         $("#stat-subtext-payroll").textContent = `Estimated for ${new Date().toLocaleString('default', { month: 'long' })}`;
 
         // 2. Render Attendance Progress Bar & Donuts
-        $("#attendance-percentage-text").textContent = `${presentRate}%`;
-        $("#attendance-progress-bar").style.width = `${presentRate}%`;
+        const attendancePctText = $("#attendance-percentage-text");
+        if (attendancePctText) attendancePctText.textContent = `${presentRate}%`;
+        const attendanceProgressBar = $("#attendance-progress-bar");
+        if (attendanceProgressBar) attendanceProgressBar.style.width = `${presentRate}%`;
 
         // Render donut circles
         const totalChecked = markedCount || 1;
@@ -114,26 +116,28 @@
         };
 
         const deptContainer = $("#dept-list-container");
-        deptContainer.innerHTML = "";
+        if (deptContainer) {
+            deptContainer.innerHTML = "";
 
-        departments.forEach(dept => {
-            const deptStaff = state.staff.filter(s => s.department === dept);
-            const count = deptStaff.length;
-            const pct = totalStaffCount > 0 ? Math.round((count / totalStaffCount) * 100) : 0;
+            departments.forEach(dept => {
+                const deptStaff = state.staff.filter(s => s.department === dept);
+                const count = deptStaff.length;
+                const pct = totalStaffCount > 0 ? Math.round((count / totalStaffCount) * 100) : 0;
 
-            const deptRow = document.createElement("div");
-            deptRow.className = "dept-progress-bar";
-            deptRow.innerHTML = `
-                <div class="dept-meta">
-                    <span class="dept-name">${dept}</span>
-                    <span class="dept-counts text-muted">${count} Staff (${pct}%)</span>
-                </div>
-                <div class="dept-bar-track">
-                    <div class="dept-bar-fill" style="width: ${pct}%; background-color: ${deptColors[dept] || 'var(--color-primary)'}"></div>
-                </div>
-            `;
-            deptContainer.appendChild(deptRow);
-        });
+                const deptRow = document.createElement("div");
+                deptRow.className = "dept-progress-bar";
+                deptRow.innerHTML = `
+                    <div class="dept-meta">
+                        <span class="dept-name">${dept}</span>
+                        <span class="dept-counts text-muted">${count} Staff (${pct}%)</span>
+                    </div>
+                    <div class="dept-bar-track">
+                        <div class="dept-bar-fill" style="width: ${pct}%; background-color: ${deptColors[dept] || 'var(--color-primary)'}"></div>
+                    </div>
+                `;
+                deptContainer.appendChild(deptRow);
+            });
+        }
 
         // 4. Render Activity Logs
         const activityList = $("#recent-activity-list");
