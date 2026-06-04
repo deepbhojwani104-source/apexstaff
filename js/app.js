@@ -1322,9 +1322,13 @@ document.addEventListener("DOMContentLoaded", function() {
                 this.classList.remove("btn-outline");
                 
                 $$(".filter-group-row").forEach(fg => fg.classList.add("hide"));
-                $(`#filter-group-${targetTab}`).classList.remove("hide");
+                const fgEl = $(`#filter-group-${targetTab}`);
+                if (fgEl) fgEl.classList.remove("hide");
                 
                 activeReportTab = targetTab;
+                if (targetTab === "students") {
+                    populateReportCoursesFilter();
+                }
                 refreshReports();
             });
         });

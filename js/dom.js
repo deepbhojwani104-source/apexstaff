@@ -1488,7 +1488,10 @@
             `;
         } else if (tab === "students") {
             const search = (document.getElementById("student-report-search")?.value || "").toLowerCase().trim();
-            const course = document.getElementById("student-report-course")?.value || "all";
+            let course = document.getElementById("student-report-course")?.value || "all";
+            if (course === "") {
+                course = "all";
+            }
             const duesFilter = document.getElementById("student-report-dues")?.value || "all";
             const dueDateStr = document.getElementById("student-report-due-date")?.value || "";
 
