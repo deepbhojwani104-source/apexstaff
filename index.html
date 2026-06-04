@@ -106,6 +106,10 @@
                     <span class="material-symbols-outlined">local_library</span>
                     <span>Student Enrollment</span>
                 </a>
+                <a href="#inventory" class="menu-item" data-view="inventory">
+                    <span class="material-symbols-outlined">inventory_2</span>
+                    <span>Inventory Hub</span>
+                </a>
                 <a href="#reports" class="menu-item" data-view="reports" id="menu-reports">
                     <span class="material-symbols-outlined">analytics</span>
                     <span>Reports Hub</span>
@@ -620,6 +624,145 @@
                             </div>
                         </div>
 
+                    </div>
+                </section>
+
+                <!-- View: Inventory Hub -->
+                <section id="view-inventory" class="page-view hide">
+                    <!-- Metrics Row -->
+                    <div class="metrics-row" id="inventory-metrics-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                        <div class="stat-card stat-primary">
+                            <div class="stat-icon">
+                                <span class="material-symbols-outlined">payments</span>
+                            </div>
+                            <div class="stat-details">
+                                <h3 id="stat-inventory-value">₹0.00</h3>
+                                <span class="stat-subtext">Total Inventory Value</span>
+                            </div>
+                        </div>
+                        <div class="stat-card stat-success">
+                            <div class="stat-icon">
+                                <span class="material-symbols-outlined">inventory_2</span>
+                            </div>
+                            <div class="stat-details">
+                                <h3 id="stat-inventory-permanent">0</h3>
+                                <span class="stat-subtext">Permanent Items</span>
+                            </div>
+                        </div>
+                        <div class="stat-card stat-info">
+                            <div class="stat-icon">
+                                <span class="material-symbols-outlined">shopping_basket</span>
+                            </div>
+                            <div class="stat-details">
+                                <h3 id="stat-inventory-consumable">0</h3>
+                                <span class="stat-subtext">Consumable Items</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-grid">
+                        <!-- Inventory Item Entry Form -->
+                        <div class="glass-card settings-card">
+                            <div class="settings-card-header">
+                                <span class="material-symbols-outlined icon-box-settings">edit_note</span>
+                                <div>
+                                    <h3>Inventory Entry Form</h3>
+                                    <p>Register new inventory items and record details.</p>
+                                </div>
+                            </div>
+                            <div class="settings-card-body">
+                                <form id="inventory-form" class="grid-form">
+                                    <input type="hidden" id="inventory-edit-id" value="">
+                                    <div class="form-group col-span-2">
+                                        <label for="inventory-name">Item Name *</label>
+                                        <input type="text" id="inventory-name" placeholder="Enter item name (e.g. Office Chair, Markers)" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="inventory-category">Category *</label>
+                                        <div class="filter-select">
+                                            <select id="inventory-category" required>
+                                                <option value="Permanent">Permanent</option>
+                                                <option value="Consumable">Consumable</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="inventory-purchase-date">Purchase Date *</label>
+                                        <input type="date" id="inventory-purchase-date" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="inventory-quantity">Quantity *</label>
+                                        <input type="number" id="inventory-quantity" placeholder="e.g. 10" min="1" required value="1">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="inventory-price">Price Per Item (₹) *</label>
+                                        <input type="number" id="inventory-price" placeholder="e.g. 150" min="0" required value="0">
+                                    </div>
+                                    <div class="form-group col-span-2">
+                                        <label for="inventory-total-amount">Total Amount (₹) *</label>
+                                        <input type="number" id="inventory-total-amount" readonly class="input-readonly" value="0" style="background: var(--bg-input-readonly); color: var(--text-muted); cursor: not-allowed;">
+                                    </div>
+                                    <div class="form-group col-span-2">
+                                        <label for="inventory-remarks">Remarks</label>
+                                        <input type="text" id="inventory-remarks" placeholder="Add location, vendor or condition remarks">
+                                    </div>
+                                    
+                                    <div class="form-group col-span-2 text-right" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+                                        <button type="button" id="btn-clear-inventory" class="btn btn-outline">Clear</button>
+                                        <button type="submit" class="btn btn-primary">Save Item</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Inventory Items List -->
+                        <div class="glass-card settings-card">
+                            <div class="settings-card-header">
+                                <span class="material-symbols-outlined icon-box-settings">list_alt</span>
+                                <div>
+                                    <h3>Inventory Items List</h3>
+                                    <p>Manage all registered inventory items.</p>
+                                </div>
+                            </div>
+                            <div class="settings-card-body">
+                                <!-- Filters panel inline -->
+                                <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                                    <input type="text" id="inventory-search" placeholder="Search by name, ID..." style="flex: 1; min-width: 150px; padding: 6px 10px; font-size:12.5px; height: 33px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary);">
+                                    <div class="filter-select" style="width: 150px;">
+                                        <select id="inventory-filter-category" style="padding: 6px 10px; font-size:12.5px; height: 33px;">
+                                            <option value="all">All Categories</option>
+                                            <option value="Permanent">Permanent</option>
+                                            <option value="Consumable">Consumable</option>
+                                        </select>
+                                    </div>
+                                    <button id="btn-export-inventory-csv" class="btn btn-outline btn-sm" style="height: 33px; padding: 0 12px; display: flex; align-items: center; gap: 6px;">
+                                        <span class="material-symbols-outlined" style="font-size: 16px;">download</span>
+                                        <span>CSV</span>
+                                    </button>
+                                </div>
+
+                                <div class="table-responsive-container" style="max-height: 400px; overflow-y: auto;">
+                                    <table class="data-table" id="inventory-list-table">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Name</th>
+                                                <th>Category</th>
+                                                <th>Qty</th>
+                                                <th>Price</th>
+                                                <th>Total</th>
+                                                <th>Purchase Date</th>
+                                                <th>Remarks</th>
+                                                <th class="text-center">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="inventory-list-body">
+                                            <!-- Dynamic items -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </section>
 

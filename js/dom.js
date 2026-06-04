@@ -1748,4 +1748,87 @@
         doc.close();
     };
 
+    AuraDOM.renderInventoryView = function(filters = { search: "", category: "all" }) {
+        const inventory = AuraStore.getInventory();
+        const tbody = document.getElementById("inventory-list-body");
+        if (!tbody) return;
+
+        tbody.innerHTML = "";
+
+        const searchQuery = (filters.search || "").toLowerCase().trim();
+        const categoryFilter = filters.category || "all";
+
+        let totalValue = 0;
+        let permanentCount = 0;
+        let consumableCount = 0;
+
+        const filtered = inventory.filter(item => {
+            const matchesSearch = searchQuery === "" ||
+                (item.name || "").toLowerCase().includes(searchQuery) ||
+                (item.id || "").toLowerCase().includes(searchQuery) ||
+                (item.remarks || "").toLowerCase().includes(searchQuery);
+
+            const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
+
+            return matchesSearch && matchesCategory;
+        });
+
+        // Loop over ALL inventory to calculate correct summary metrics
+        inventory.forEach(item => {
+            const qty = Number(item.quantity || 0);
+            const price = Number(item.price || 0);
+            const total = qty * price;
+            totalValue += total;
+
+            if (item.category === "Permanent") {
+                permanentCount += qty;
+            } else if (item.category === "Consumable") {
+                consumableCount += qty;
+            }
+        });
+
+        // Update metric badges
+        const valStat = document.getElementById("stat-inventory-value");
+        const permStat = document.getElementById("stat-inventory-permanent");
+        const consStat = document.getElementById("stat-inventory-consumable");
+
+        if (valStat) valStat.textContent = `₹${totalValue.toLocaleString('en-IN')}`;
+        if (permStat) permStat.textContent = permanentCount.toLocaleString('en-IN');
+        if (consStat) consStat.textContent = consumableCount.toLocaleString('en-IN');
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">No inventory items found.</td></tr>`;
+        } else {
+            filtered.forEach(item => {
+                const qty = Number(item.quantity || 0);
+                const price = Number(item.price || 0);
+                const total = qty * price;
+                
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td><strong>${item.id || ''}</strong></td>
+                    <td>${item.name || ''}</td>
+                    <td><span class="node-dept-pill" style="background: ${item.category === 'Permanent' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(59, 130, 246, 0.1)'}; color: ${item.category === 'Permanent' ? 'var(--color-success)' : 'var(--color-info)'};">${item.category || ''}</span></td>
+                    <td>${qty}</td>
+                    <td>₹${price.toLocaleString('en-IN')}</td>
+                    <td><strong>₹${total.toLocaleString('en-IN')}</strong></td>
+                    <td>${robustDateString(item.purchaseDate)}</td>
+                    <td title="${item.remarks || ''}"><span style="font-size:12.5px; color:var(--text-secondary); max-width:120px; display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.remarks || '-'}</span></td>
+                    <td class="text-center">
+                        <div style="display:flex; justify-content:center; gap:6px;">
+                            <button class="btn-icon btn-edit-inventory" data-id="${item.id}" title="Edit Item">
+                                <span class="material-symbols-outlined" style="font-size:17px;">edit</span>
+                            </button>
+                            <button class="btn-icon btn-delete-inventory text-rose" data-id="${item.id}" title="Delete Item">
+                                <span class="material-symbols-outlined" style="font-size:17px;">delete</span>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    };
+
+
 })();

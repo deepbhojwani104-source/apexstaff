@@ -74,6 +74,7 @@ document.addEventListener("DOMContentLoaded", function() {
         attendance: "Daily Attendance Log",
         payroll: "Payroll Hub",
         students: "Student Enrollment Hub",
+        inventory: "Inventory Hub",
         settings: "System Settings",
         reports: "Reports Hub"
     };
@@ -127,6 +128,8 @@ document.addEventListener("DOMContentLoaded", function() {
             refreshPayroll();
         } else if (viewName === "students") {
             refreshStudents();
+        } else if (viewName === "inventory") {
+            refreshInventory();
         } else if (viewName === "settings") {
             loadSettingsValues();
         } else if (viewName === "reports") {
@@ -963,6 +966,163 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // ==========================================================================
+    // 7b. Inventory Hub Actions
+    // ==========================================================================
+    const inventoryFilters = { search: "", category: "all" };
+    function refreshInventory() {
+        const searchEl = $("#inventory-search");
+        const filterEl = $("#inventory-filter-category");
+        inventoryFilters.search = searchEl ? searchEl.value : "";
+        inventoryFilters.category = filterEl ? filterEl.value : "all";
+        AuraDOM.renderInventoryView(inventoryFilters);
+    }
+
+    function calculateInventoryTotal() {
+        const qty = Number($("#inventory-quantity").value || 0);
+        const price = Number($("#inventory-price").value || 0);
+        $("#inventory-total-amount").value = qty * price;
+    }
+
+    const qtyInput = $("#inventory-quantity");
+    const priceInput = $("#inventory-price");
+    if (qtyInput) qtyInput.addEventListener("input", calculateInventoryTotal);
+    if (priceInput) priceInput.addEventListener("input", calculateInventoryTotal);
+
+    // Save/Update inventory item
+    const inventoryForm = $("#inventory-form");
+    if (inventoryForm) {
+        inventoryForm.addEventListener("submit", function(e) {
+            e.preventDefault();
+            
+            const editId = $("#inventory-edit-id").value.trim();
+            const name = $("#inventory-name").value.trim();
+            const category = $("#inventory-category").value;
+            const purchaseDate = $("#inventory-purchase-date").value;
+            const quantity = Number($("#inventory-quantity").value);
+            const price = Number($("#inventory-price").value);
+            const totalAmount = quantity * price;
+            const remarks = $("#inventory-remarks").value.trim();
+
+            const itemObj = {
+                name,
+                category,
+                purchaseDate,
+                quantity,
+                price,
+                totalAmount,
+                remarks
+            };
+
+            try {
+                if (editId) {
+                    AuraStore.updateInventoryItem(editId, itemObj);
+                    AuraDOM.showToast(`Updated item ${editId}`, "success");
+                } else {
+                    AuraStore.addInventoryItem(itemObj);
+                    AuraDOM.showToast("Inventory item saved successfully", "success");
+                }
+                clearInventoryForm();
+                refreshInventory();
+                triggerAutoSync();
+            } catch (err) {
+                AuraDOM.showToast(err.message, "error");
+            }
+        });
+    }
+
+    function clearInventoryForm() {
+        $("#inventory-edit-id").value = "";
+        $("#inventory-name").value = "";
+        $("#inventory-category").value = "Permanent";
+        
+        // Purchase date default to today's date
+        const todayStr = new Date().toISOString().split('T')[0];
+        $("#inventory-purchase-date").value = todayStr;
+        
+        $("#inventory-quantity").value = 1;
+        $("#inventory-price").value = 0;
+        $("#inventory-total-amount").value = 0;
+        $("#inventory-remarks").value = "";
+        
+        const saveBtn = $("#inventory-form button[type='submit']");
+        if (saveBtn) saveBtn.textContent = "Save Item";
+        
+        $("#inventory-name").focus();
+    }
+
+    const btnClearInventory = $("#btn-clear-inventory");
+    if (btnClearInventory) {
+        btnClearInventory.addEventListener("click", clearInventoryForm);
+    }
+
+    // Filters triggers
+    const invSearch = $("#inventory-search");
+    const invCatFilter = $("#inventory-filter-category");
+    if (invSearch) invSearch.addEventListener("input", refreshInventory);
+    if (invCatFilter) invCatFilter.addEventListener("change", refreshInventory);
+
+    // List table click delegation (edit/delete)
+    const inventoryListTable = $("#inventory-list-table");
+    if (inventoryListTable) {
+        inventoryListTable.addEventListener("click", function(e) {
+            const editBtn = e.target.closest(".btn-edit-inventory");
+            const deleteBtn = e.target.closest(".btn-delete-inventory");
+
+            if (editBtn) {
+                const id = editBtn.dataset.id;
+                const items = AuraStore.getInventory();
+                const item = items.find(i => i.id === id);
+                if (item) {
+                    $("#inventory-edit-id").value = item.id;
+                    $("#inventory-name").value = item.name;
+                    $("#inventory-category").value = item.category;
+                    $("#inventory-purchase-date").value = item.purchaseDate || "";
+                    $("#inventory-quantity").value = item.quantity || 1;
+                    $("#inventory-price").value = item.price || 0;
+                    $("#inventory-total-amount").value = item.totalAmount || 0;
+                    $("#inventory-remarks").value = item.remarks || "";
+                    
+                    const saveBtn = $("#inventory-form button[type='submit']");
+                    if (saveBtn) saveBtn.textContent = "Update Item";
+
+                    $("#inventory-name").focus();
+                    $("#inventory-form").scrollIntoView({ behavior: 'smooth' });
+                }
+            }
+
+            if (deleteBtn) {
+                const id = deleteBtn.dataset.id;
+                if (confirm(`Are you sure you want to delete inventory item ${id}?`)) {
+                    AuraStore.deleteInventoryItem(id);
+                    AuraDOM.showToast(`Deleted inventory item ${id}`, "info");
+                    refreshInventory();
+                    triggerAutoSync();
+                }
+            }
+        });
+    }
+
+    // CSV Exporter for Inventory
+    const btnExportInventory = $("#btn-export-inventory-csv");
+    if (btnExportInventory) {
+        btnExportInventory.addEventListener("click", () => {
+            const items = AuraStore.getInventory();
+            if (items.length === 0) {
+                AuraDOM.showToast("No inventory items to export.", "error");
+                return;
+            }
+
+            let csv = "Item ID,Name,Category,Quantity,Price per Item,Total Amount,Purchase Date,Remarks,Last Updated\n";
+            items.forEach(item => {
+                csv += `"${item.id}","${item.name}","${item.category}",${item.quantity},${item.price},${item.totalAmount},"${item.purchaseDate || ''}","${(item.remarks || '').replace(/"/g, '""')}",${item.lastUpdated || Date.now()}\n`;
+            });
+
+            downloadCSVFile(csv, `aurastaff_inventory_${new Date().toISOString().split('T')[0]}.csv`);
+            AuraDOM.showToast("Inventory database CSV downloaded", "success");
+        });
+    }
+
+    // ==========================================================================
     // 8. Settings & Backup Page Actions
     // ==========================================================================
     function loadSettingsValues() {
@@ -1308,6 +1468,9 @@ document.addEventListener("DOMContentLoaded", function() {
         
         // Populate report courses and render dashboard report
         populateReportCoursesFilter();
+        
+        // Initialize inventory form and default values
+        clearInventoryForm();
         
         // Bind Reports Hub Tab Clicks
         $$(".report-tab-btn").forEach(btn => {

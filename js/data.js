@@ -24,6 +24,7 @@
         payroll: {},    // 'YYYY-MM' => { staffId: { baseSalary, allowances, deductions, absentDeductions, netSalary, status, remarks } }
         students: [],
         courses: [],
+        inventory: [],
         branding: { ...DEFAULT_BRANDING },
         logs: [],
         sheetsUrlStaff: "",
@@ -55,6 +56,7 @@
                     payroll: parsed.payroll || {},
                     students: parsed.students || [],
                     courses: parsed.courses || [],
+                    inventory: parsed.inventory || [],
                     branding: parsed.branding || { ...DEFAULT_BRANDING },
                     logs: parsed.logs || [],
                     sheetsUrlStaff: parsed.sheetsUrlStaff || "",
@@ -369,6 +371,9 @@
                         staff: parsed.staff || [],
                         attendance: parsed.attendance || {},
                         payroll: parsed.payroll || {},
+                        students: parsed.students || [],
+                        courses: parsed.courses || [],
+                        inventory: parsed.inventory || [],
                         branding: parsed.branding || { ...DEFAULT_BRANDING },
                         logs: parsed.logs || []
                     };
@@ -394,6 +399,7 @@
             payroll: {},
             students: [],
             courses: [],
+            inventory: [],
             branding: { ...DEFAULT_BRANDING },
             logs: []
         };
@@ -673,6 +679,52 @@
         AuraStore.logActivity(`Removed student ${name} (${id})`, "danger");
     };
 
+    // Inventory operations
+    AuraStore.getInventory = function() {
+        return state.inventory || [];
+    };
+
+    AuraStore.addInventoryItem = function(itemObj) {
+        if (!state.inventory) state.inventory = [];
+        if (!itemObj.id) {
+            const nextNum = state.inventory.length > 0
+                ? Math.max(...state.inventory.map(i => Number(i.id.split('-')[1]) || 1000)) + 1
+                : 1001;
+            itemObj.id = `INV-${nextNum}`;
+        }
+        itemObj.lastUpdated = Date.now();
+        state.inventory.push(itemObj);
+        AuraStore.saveState();
+        AuraStore.logActivity(`Added inventory item ${itemObj.name} (${itemObj.id})`, "success");
+        return itemObj;
+    };
+
+    AuraStore.updateInventoryItem = function(id, updatedFields) {
+        if (!state.inventory) return;
+        const index = state.inventory.findIndex(item => item.id === id);
+        if (index === -1) {
+            throw new Error("Inventory item not found.");
+        }
+        state.inventory[index] = {
+            ...state.inventory[index],
+            ...updatedFields,
+            lastUpdated: Date.now()
+        };
+        AuraStore.saveState();
+        AuraStore.logActivity(`Updated inventory item ${state.inventory[index].name} (${id})`, "info");
+        return state.inventory[index];
+    };
+
+    AuraStore.deleteInventoryItem = function(id) {
+        if (!state.inventory) return;
+        const index = state.inventory.findIndex(item => item.id === id);
+        if (index === -1) return;
+        const name = state.inventory[index].name;
+        state.inventory.splice(index, 1);
+        AuraStore.saveState();
+        AuraStore.logActivity(`Removed inventory item ${name} (${id})`, "danger");
+    };
+
     // 9. Session Authentication Gateways
     const ROLE_KEY = "aurastaff_user_role";
 
@@ -825,6 +877,7 @@
         let pulledPayroll = {};
         let pulledStudents = [];
         let pulledCourses = [];
+        let pulledInventory = [];
 
         if (syncStaff && urlStaff) pendingPulls++;
         if (syncAttendance && urlAttendance) pendingPulls++;
@@ -861,6 +914,7 @@
                     payroll: state.payroll,
                     students: state.students,
                     courses: state.courses,
+                    inventory: state.inventory || [],
                     options: {
                         syncStaff: true,
                         syncAttendance: false
@@ -876,6 +930,7 @@
                     attendance: state.attendance,
                     students: state.students,
                     courses: state.courses,
+                    inventory: state.inventory || [],
                     options: {
                         syncStaff: false,
                         syncAttendance: true
@@ -1126,6 +1181,65 @@
                 state.courses = mergedCourses;
             }
 
+            // 6. Merge Inventory
+            if (pulledInventory && pulledInventory.length > 0) {
+                // Deduplicate pulled inventory by id, keeping the one with the latest lastUpdated
+                const dedupedPulledInventoryMap = {};
+                pulledInventory.forEach(item => {
+                    if (item && item.id) {
+                        if (item.purchaseDate) {
+                            const parsedDate = new Date(item.purchaseDate);
+                            if (!isNaN(parsedDate.getTime())) {
+                                const y = parsedDate.getFullYear();
+                                const m = String(parsedDate.getMonth() + 1).padStart(2, '0');
+                                const d = String(parsedDate.getDate()).padStart(2, '0');
+                                item.purchaseDate = `${y}-${m}-${d}`;
+                            }
+                        }
+                        const existing = dedupedPulledInventoryMap[item.id];
+                        if (!existing || (item.lastUpdated || 0) > (existing.lastUpdated || 0)) {
+                            dedupedPulledInventoryMap[item.id] = item;
+                        }
+                    }
+                });
+                const cleanPulledInventory = Object.values(dedupedPulledInventoryMap);
+
+                const localInventoryMap = {};
+                if (!state.inventory) state.inventory = [];
+                state.inventory.forEach(item => localInventoryMap[item.id] = item);
+
+                const mergedInventory = [];
+                const processedLocalIds = new Set();
+
+                cleanPulledInventory.forEach(pulled => {
+                    const local = localInventoryMap[pulled.id];
+                    if (local) {
+                        const localTime = local.lastUpdated || 0;
+                        const pulledTime = pulled.lastUpdated || 0;
+                        if (pulledTime >= localTime) {
+                            mergedInventory.push({
+                                ...local,
+                                ...pulled
+                            });
+                        } else {
+                            mergedInventory.push(local);
+                        }
+                        processedLocalIds.add(pulled.id);
+                    } else {
+                        mergedInventory.push(pulled);
+                    }
+                });
+
+                state.inventory.forEach(item => {
+                    if (!processedLocalIds.has(item.id)) {
+                        mergedInventory.push(item);
+                        processedLocalIds.add(item.id);
+                    }
+                });
+
+                state.inventory = mergedInventory;
+            }
+
             AuraStore.saveState();
         }
 
@@ -1143,6 +1257,9 @@
                     if (data.courses && (pulledCourses.length === 0 || data.courses.length > 0)) {
                         pulledCourses = data.courses;
                     }
+                    if (data.inventory && (pulledInventory.length === 0 || data.inventory.length > 0)) {
+                        pulledInventory = data.inventory;
+                    }
                 } else if (type === "attendance" && data.attendance) {
                     pulledAttendance = data.attendance;
                     if (data.students && (pulledStudents.length === 0 || data.students.length > 0)) {
@@ -1150,6 +1267,9 @@
                     }
                     if (data.courses && (pulledCourses.length === 0 || data.courses.length > 0)) {
                         pulledCourses = data.courses;
+                    }
+                    if (data.inventory && (pulledInventory.length === 0 || data.inventory.length > 0)) {
+                        pulledInventory = data.inventory;
                     }
                 }
             }
@@ -1189,7 +1309,7 @@
     // Copyable Google Apps Script Template
     AuraStore.GOOGLE_SCRIPT_TEMPLATE = `function doGet(e) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var result = { success: true, staff: [], attendance: {}, payroll: {}, students: [], courses: [] };
+  var result = { success: true, staff: [], attendance: {}, payroll: {}, students: [], courses: [], inventory: [] };
   
   try {
     // 1. Read Faculty details from Sheet1
@@ -1318,6 +1438,30 @@
               name: String(row[0]),
               price: Number(row[1]),
               lastUpdated: row[2] ? Number(row[2]) : Date.now()
+            });
+          }
+        });
+      }
+    }
+
+    // 6. Read Inventory from Inventory tab
+    var inventorySheet = ss.getSheetByName("Inventory");
+    if (inventorySheet) {
+      var lastRow = inventorySheet.getLastRow();
+      if (lastRow > 1) {
+        var inventoryRows = inventorySheet.getRange(2, 1, lastRow - 1, 9).getValues();
+        inventoryRows.forEach(function(row) {
+          if (row[0]) {
+            result.inventory.push({
+              id: String(row[0]),
+              name: String(row[1]),
+              category: String(row[2]),
+              quantity: Number(row[3]),
+              price: Number(row[4]),
+              purchaseDate: row[5] instanceof Date ? Utilities.formatDate(row[5], Session.getScriptTimeZone(), "yyyy-MM-dd") : String(row[5] || ""),
+              totalAmount: Number(row[6]),
+              remarks: String(row[7] || ""),
+              lastUpdated: row[8] ? Number(row[8]) : Date.now()
             });
           }
         });
@@ -1472,6 +1616,36 @@ function doPost(e) {
         ]);
       });
       coursesSheet.autoResizeColumns(1, 3);
+    }
+
+    // 1e. Write Inventory directly into Inventory tab
+    if (data.inventory) {
+      var inventorySheet = ss.getSheetByName("Inventory");
+      if (!inventorySheet) {
+        inventorySheet = ss.insertSheet("Inventory");
+        inventorySheet.appendRow([
+          "Item ID", "Name", "Category", "Quantity", "Price per Item", "Purchase Date", "Total Amount", "Remarks", "Last Updated"
+        ]);
+        inventorySheet.getRange("A1:I1").setFontWeight("bold");
+      }
+      var lastRowI = inventorySheet.getLastRow();
+      if (lastRowI > 1) {
+        inventorySheet.getRange(2, 1, lastRowI - 1, 9).clearContent();
+      }
+      data.inventory.forEach(function(item) {
+        inventorySheet.appendRow([
+          item.id,
+          item.name,
+          item.category,
+          item.quantity,
+          item.price,
+          item.purchaseDate || "",
+          item.totalAmount || 0,
+          item.remarks || "",
+          item.lastUpdated || Date.now()
+        ]);
+      });
+      inventorySheet.autoResizeColumns(1, 9);
     }
     
     // 2. Save Daily Attendance records to the Attendance tab
