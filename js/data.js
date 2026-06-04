@@ -893,6 +893,15 @@
                 const dedupedPulledStaffMap = {};
                 pulledStaff.forEach(s => {
                     if (s && s.id) {
+                        if (s.joiningDate) {
+                            const parsedDate = new Date(s.joiningDate);
+                            if (!isNaN(parsedDate.getTime())) {
+                                const y = parsedDate.getFullYear();
+                                const m = String(parsedDate.getMonth() + 1).padStart(2, '0');
+                                const d = String(parsedDate.getDate()).padStart(2, '0');
+                                s.joiningDate = `${y}-${m}-${d}`;
+                            }
+                        }
                         const existing = dedupedPulledStaffMap[s.id];
                         if (!existing || (s.lastUpdated || 0) > (existing.lastUpdated || 0)) {
                             dedupedPulledStaffMap[s.id] = s;
@@ -967,12 +976,24 @@
 
             // 3. Merge Payroll
             if (pulledPayroll && Object.keys(pulledPayroll).length > 0) {
-                Object.keys(pulledPayroll).forEach(monthKey => {
+                const normalizedPulledPayroll = {};
+                Object.keys(pulledPayroll).forEach(rawKey => {
+                    let normKey = rawKey.trim();
+                    const parsedDate = new Date(rawKey);
+                    if (!isNaN(parsedDate.getTime())) {
+                        const y = parsedDate.getFullYear();
+                        const m = String(parsedDate.getMonth() + 1).padStart(2, '0');
+                        normKey = `${y}-${m}`;
+                    }
+                    normalizedPulledPayroll[normKey] = pulledPayroll[rawKey];
+                });
+
+                Object.keys(normalizedPulledPayroll).forEach(monthKey => {
                     if (!state.payroll[monthKey]) {
-                        state.payroll[monthKey] = pulledPayroll[monthKey];
+                        state.payroll[monthKey] = normalizedPulledPayroll[monthKey];
                     } else {
                         const localMonth = state.payroll[monthKey];
-                        const pulledMonth = pulledPayroll[monthKey];
+                        const pulledMonth = normalizedPulledPayroll[monthKey];
                         Object.keys(pulledMonth).forEach(staffId => {
                             const localRec = localMonth[staffId];
                             const pulledRec = pulledMonth[staffId];
@@ -999,6 +1020,15 @@
                 const dedupedPulledStudentsMap = {};
                 pulledStudents.forEach(s => {
                     if (s && s.id) {
+                        if (s.dueDate) {
+                            const parsedDate = new Date(s.dueDate);
+                            if (!isNaN(parsedDate.getTime())) {
+                                const y = parsedDate.getFullYear();
+                                const m = String(parsedDate.getMonth() + 1).padStart(2, '0');
+                                const d = String(parsedDate.getDate()).padStart(2, '0');
+                                s.dueDate = `${y}-${m}-${d}`;
+                            }
+                        }
                         const existing = dedupedPulledStudentsMap[s.id];
                         if (!existing || (s.lastUpdated || 0) > (existing.lastUpdated || 0)) {
                             dedupedPulledStudentsMap[s.id] = s;
@@ -1230,7 +1260,7 @@
         var payrollRows = payrollSheet.getRange(2, 1, lastRow - 1, 10).getValues();
         payrollRows.forEach(function(row) {
           if (row[0] && row[1]) {
-            var monthKey = String(row[0]);
+            var monthKey = row[0] instanceof Date ? Utilities.formatDate(row[0], Session.getScriptTimeZone(), "yyyy-MM") : String(row[0]);
             var staffId = String(row[1]);
             if (!result.payroll[monthKey]) {
               result.payroll[monthKey] = {};
@@ -1267,7 +1297,7 @@
               amountReceived: Number(row[5]),
               dueDate: row[6] instanceof Date ? Utilities.formatDate(row[6], Session.getScriptTimeZone(), "yyyy-MM-dd") : String(row[6] || ""),
               dueAmount: Number(row[7]),
-              feeType: String(row[8]).split(",").map(function(t) { return t.trim(); }),
+              feeType: row[8] ? String(row[8]).split(",").map(function(t) { return t.trim(); }).filter(Boolean) : [],
               remarks: String(row[9] || ""),
               lastUpdated: row[10] ? Number(row[10]) : Date.now()
             });
