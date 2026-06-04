@@ -489,6 +489,49 @@
             }
         });
 
+        const role = AuraStore.getUserRole();
+        let salarySection = "";
+        let payrollHistorySection = "";
+
+        if (role === "admin") {
+            salarySection = `
+                <!-- Banking & Payout Card -->
+                <div class="detail-section">
+                    <h4>Salary & Banking Records</h4>
+                    <div class="detail-info-row">
+                        <strong>Monthly Base</strong>
+                        <span>₹${Number(emp.baseSalary).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div class="detail-info-row">
+                        <strong>Salary Type</strong>
+                        <span>${emp.salaryType || 'Standard'}</span>
+                    </div>
+                    <div class="detail-info-row">
+                        <strong>Bank</strong>
+                        <span>${emp.bankName || '-'}</span>
+                    </div>
+                    <div class="detail-info-row">
+                        <strong>Acc No.</strong>
+                        <span>${emp.bankAccount || '-'}</span>
+                    </div>
+                    <div class="detail-info-row">
+                        <strong>IFSC Code</strong>
+                        <span>${emp.bankIfsc || '-'}</span>
+                    </div>
+                </div>
+            `;
+
+            payrollHistorySection = `
+                <!-- Past Payroll Register Log -->
+                <div class="detail-section">
+                    <h4>Payroll History Log</h4>
+                    <div class="history-timeline-scroll" id="detail-payroll-history">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+            `;
+        }
+
         const detailContainer = $("#staff-detail-content");
         detailContainer.innerHTML = `
             <div class="detail-header-block">
@@ -522,30 +565,7 @@
                     </div>
                 </div>
 
-                <!-- Banking & Payout Card -->
-                <div class="detail-section">
-                    <h4>Salary & Banking Records</h4>
-                    <div class="detail-info-row">
-                        <strong>Monthly Base</strong>
-                        <span>₹${Number(emp.baseSalary).toLocaleString('en-IN')}</span>
-                    </div>
-                    <div class="detail-info-row">
-                        <strong>Salary Type</strong>
-                        <span>${emp.salaryType || 'Standard'}</span>
-                    </div>
-                    <div class="detail-info-row">
-                        <strong>Bank</strong>
-                        <span>${emp.bankName || '-'}</span>
-                    </div>
-                    <div class="detail-info-row">
-                        <strong>Acc No.</strong>
-                        <span>${emp.bankAccount || '-'}</span>
-                    </div>
-                    <div class="detail-info-row">
-                        <strong>IFSC Code</strong>
-                        <span>${emp.bankIfsc || '-'}</span>
-                    </div>
-                </div>
+                ${salarySection}
 
                 <!-- Year to Date Metrics -->
                 <div class="detail-section">
@@ -560,43 +580,39 @@
                     </div>
                 </div>
 
-                <!-- Past Payroll Register Log -->
-                <div class="detail-section">
-                    <h4>Payroll History Log</h4>
-                    <div class="history-timeline-scroll" id="detail-payroll-history">
-                        <!-- Loaded dynamically -->
-                    </div>
-                </div>
+                ${payrollHistorySection}
             </div>
         `;
 
         // Render Payroll history items inside detail modal
         const historyContainer = $("#detail-payroll-history");
-        historyContainer.innerHTML = "";
-        
-        let historyFound = false;
-        Object.keys(state.payroll).sort().reverse().forEach(monthKey => {
-            const monthRecord = state.payroll[monthKey][staffId];
-            if (monthRecord) {
-                historyFound = true;
-                const dateObj = new Date(monthKey + "-01");
-                const dateDisplay = dateObj.toLocaleDateString('default', { month: 'long', year: 'numeric' });
-                
-                const item = document.createElement("div");
-                item.className = "history-item";
-                item.innerHTML = `
-                    <div class="history-item-left">
-                        <span class="history-item-date">${dateDisplay}</span>
-                        <span class="history-item-desc">${monthRecord.status} | Deduction: ₹${(monthRecord.absentDeductions + monthRecord.deductions).toLocaleString('en-IN')}</span>
-                    </div>
-                    <span class="history-item-amount">₹${monthRecord.netSalary.toLocaleString('en-IN')}</span>
-                `;
-                historyContainer.appendChild(item);
-            }
-        });
+        if (historyContainer) {
+            historyContainer.innerHTML = "";
+            
+            let historyFound = false;
+            Object.keys(state.payroll).sort().reverse().forEach(monthKey => {
+                const monthRecord = state.payroll[monthKey][staffId];
+                if (monthRecord) {
+                    historyFound = true;
+                    const dateObj = new Date(monthKey + "-01");
+                    const dateDisplay = dateObj.toLocaleDateString('default', { month: 'long', year: 'numeric' });
+                    
+                    const item = document.createElement("div");
+                    item.className = "history-item";
+                    item.innerHTML = `
+                        <div class="history-item-left">
+                            <span class="history-item-date">${dateDisplay}</span>
+                            <span class="history-item-desc">${monthRecord.status} | Deduction: ₹${(monthRecord.absentDeductions + monthRecord.deductions).toLocaleString('en-IN')}</span>
+                        </div>
+                        <span class="history-item-amount">₹${monthRecord.netSalary.toLocaleString('en-IN')}</span>
+                    `;
+                    historyContainer.appendChild(item);
+                }
+            });
 
-        if (!historyFound) {
-            historyContainer.innerHTML = `<div class="text-muted text-center pt-4" style="font-size:12px;">No historical payslip processed for this employee yet.</div>`;
+            if (!historyFound) {
+                historyContainer.innerHTML = `<div class="text-muted text-center pt-4" style="font-size:12px;">No historical payslip processed for this employee yet.</div>`;
+            }
         }
     };
 

@@ -78,6 +78,11 @@ document.addEventListener("DOMContentLoaded", function() {
     };
 
     function switchView(targetView) {
+        // Enforce user role authorization limits
+        if (targetView === "payroll" && AuraStore.getUserRole() !== "admin") {
+            targetView = "dashboard";
+        }
+
         currentView = targetView;
         
         // Hide all views, display the selected target view
@@ -216,6 +221,13 @@ document.addEventListener("DOMContentLoaded", function() {
         // Pre-fill joining date as today
         $("#staff-joining-date").value = new Date().toISOString().split('T')[0];
         
+        if (AuraStore.getUserRole() !== "admin") {
+            $("#staff-base-salary").value = 0;
+            $("#staff-base-salary").removeAttribute("required");
+        } else {
+            $("#staff-base-salary").setAttribute("required", "required");
+        }
+
         $("#modal-staff-form").classList.remove("hide");
     }
 
@@ -307,6 +319,12 @@ document.addEventListener("DOMContentLoaded", function() {
                 $("#staff-bank-name").value = emp.bankName || "";
                 $("#staff-bank-acc").value = emp.bankAccount || "";
                 $("#staff-bank-ifsc").value = emp.bankIfsc || "";
+
+                if (AuraStore.getUserRole() !== "admin") {
+                    $("#staff-base-salary").removeAttribute("required");
+                } else {
+                    $("#staff-base-salary").setAttribute("required", "required");
+                }
 
                 $("#modal-staff-title").textContent = `Edit Staff: ${emp.name}`;
                 $("#modal-staff-form").classList.remove("hide");
@@ -1189,8 +1207,31 @@ document.addEventListener("DOMContentLoaded", function() {
     // ==========================================================================
     // 9. Core App Initialization
     // ==========================================================================
+    function applyRolePrivileges() {
+        const role = AuraStore.getUserRole();
+        if (role === "admin") {
+            $("#menu-payroll").classList.remove("hide");
+            $("#card-payroll-stat").classList.remove("hide");
+            $("#tile-payroll").classList.remove("hide");
+            $("#section-salary-banking-header").classList.remove("hide");
+            $("#section-salary-banking-fields").classList.remove("hide");
+        } else {
+            $("#menu-payroll").classList.add("hide");
+            $("#card-payroll-stat").classList.add("hide");
+            $("#tile-payroll").classList.add("hide");
+            $("#section-salary-banking-header").classList.add("hide");
+            $("#section-salary-banking-fields").classList.add("hide");
+            
+            // Redirect to dashboard if clerk somehow lands on payroll view
+            if (currentView === "payroll") {
+                switchView("dashboard");
+            }
+        }
+    }
+
     function initApp() {
         initTheme();
+        applyRolePrivileges();
         initAttendanceView();
         initPayrollView();
         

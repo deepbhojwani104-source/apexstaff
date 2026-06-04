@@ -98,7 +98,7 @@
                     <span class="material-symbols-outlined">calendar_today</span>
                     <span>Attendance Log</span>
                 </a>
-                <a href="#payroll" class="menu-item" data-view="payroll">
+                <a href="#payroll" class="menu-item" data-view="payroll" id="menu-payroll">
                     <span class="material-symbols-outlined">payments</span>
                     <span>Payroll Hub</span>
                 </a>
@@ -195,7 +195,7 @@
                                 <span class="stat-subtext" id="stat-subtext-absent">0 members off</span>
                             </div>
                         </div>
-                        <div class="stat-card stat-info">
+                        <div class="stat-card stat-info" id="card-payroll-stat">
                             <div class="stat-icon">
                                 <span class="material-symbols-outlined">payments</span>
                             </div>
@@ -1051,8 +1051,8 @@
                     </div>
                 </div>
 
-                <h4 class="form-section-title">Salary & Banking Setup</h4>
-                <div class="grid-form">
+                <h4 class="form-section-title" id="section-salary-banking-header">Salary & Banking Setup</h4>
+                <div class="grid-form" id="section-salary-banking-fields">
                     <div class="form-group">
                         <label for="staff-base-salary">Base Monthly Salary (₹) *</label>
                         <input type="number" id="staff-base-salary" required placeholder="e.g. 45000" min="0">

@@ -674,14 +674,26 @@
     };
 
     // 9. Session Authentication Gateways
+    const ROLE_KEY = "aurastaff_user_role";
+
     AuraStore.isLoggedIn = function() {
         return sessionStorage.getItem(SESSION_KEY) === "true";
+    };
+
+    AuraStore.getUserRole = function() {
+        return sessionStorage.getItem(ROLE_KEY) || "staff";
     };
 
     AuraStore.login = function(username, password) {
         if (username === "admin" && password === "admin123") {
             sessionStorage.setItem(SESSION_KEY, "true");
+            sessionStorage.setItem(ROLE_KEY, "admin");
             AuraStore.logActivity("Administrator session authenticated.", "success");
+            return true;
+        } else if (username === "clerk" && password === "clerk123") {
+            sessionStorage.setItem(SESSION_KEY, "true");
+            sessionStorage.setItem(ROLE_KEY, "staff");
+            AuraStore.logActivity("Staff session authenticated.", "success");
             return true;
         }
         AuraStore.logActivity(`Failed login attempt for user: ${username}`, "warning");
@@ -690,7 +702,8 @@
 
     AuraStore.logout = function() {
         sessionStorage.removeItem(SESSION_KEY);
-        AuraStore.logActivity("Administrator session terminated.", "info");
+        sessionStorage.removeItem(ROLE_KEY);
+        AuraStore.logActivity("Session terminated.", "info");
     };
 
     // 10. Google Sheets URL Configuration
