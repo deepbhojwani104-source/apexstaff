@@ -345,6 +345,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
     function initAttendanceView() {
         const picker = $("#attendance-date-picker");
+        const todayStr = new Date().toISOString().split('T')[0];
+        picker.setAttribute("max", todayStr);
         picker.value = currentAttendanceDate;
         
         // Populate header date
@@ -361,6 +363,11 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Date picker field triggers
     $("#attendance-date-picker").addEventListener("change", function() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (this.value > todayStr) {
+            AuraDOM.showToast("Cannot select a future date.", "warning");
+            this.value = todayStr;
+        }
         currentAttendanceDate = this.value;
         $("#header-date").textContent = new Date(currentAttendanceDate).toLocaleDateString('en-GB', { 
             weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' 
@@ -382,6 +389,11 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Next Day Nav Clicks
     $("#btn-next-day").addEventListener("click", () => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (currentAttendanceDate >= todayStr) {
+            AuraDOM.showToast("Cannot navigate to future dates.", "warning");
+            return;
+        }
         const d = new Date(currentAttendanceDate);
         d.setDate(d.getDate() + 1);
         currentAttendanceDate = d.toISOString().split('T')[0];
