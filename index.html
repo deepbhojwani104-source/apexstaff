@@ -835,7 +835,7 @@
                             <div class="card-header" style="margin-bottom: 15px; border-bottom: 1px solid var(--color-border); padding-bottom: 10px;">
                                 <h3 style="display:flex; align-items:center; gap:8px;">
                                     <span class="material-symbols-outlined">edit_note</span>
-                                    <span>Record Monthly Expenses</span>
+                                    <span>Record Monthly Financial Details</span>
                                 </h3>
                             </div>
                             <form id="finance-expense-form" class="grid-form" style="display: grid; gap: 15px;">
@@ -855,6 +855,17 @@
                                     <label for="finance-other-details">Other Expenses Details</label>
                                     <textarea id="finance-other-details" placeholder="Describe other operational expenses (e.g. Internet, tea, snacks, printing papers)" style="height: 70px; resize: none; font-size:12.5px; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); width:100%; outline:none;"></textarea>
                                 </div>
+                                <div class="form-group col-span-2" style="border-top: 1px dashed var(--color-border); padding-top: 10px; margin-top: 5px;">
+                                    <label style="font-weight: 600; color: var(--color-success); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom: 8px; display:block;">Other Revenue Source</label>
+                                </div>
+                                <div class="form-group col-span-2">
+                                    <label for="finance-other-income">Other Income Received (₹)</label>
+                                    <input type="number" id="finance-other-income" placeholder="e.g. 5000" min="0" value="0">
+                                </div>
+                                <div class="form-group col-span-2">
+                                    <label for="finance-other-income-details">Other Income Details / Source</label>
+                                    <input type="text" id="finance-other-income-details" placeholder="Describe other income (e.g. rent, seminars, consultancy)" style="font-size:12.5px; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); width:100%; outline:none; height: 35px;">
+                                </div>
                                 <div class="form-group col-span-2" style="background: var(--bg-card); padding: 12px; border-radius: var(--radius-sm); border: 1px dashed var(--color-border); font-size:12.5px;">
                                     <span style="color:var(--text-muted); font-weight:500;">Auto-Computed Expenses:</span>
                                     <div style="display:flex; justify-content:space-between; margin-top:6px; color:var(--text-secondary);">
@@ -863,7 +874,7 @@
                                     </div>
                                 </div>
                                 <div class="form-group col-span-2 text-right" style="margin-top: 10px;">
-                                    <button type="submit" class="btn btn-primary" style="height: 35px;">Save Monthly Expenses</button>
+                                    <button type="submit" class="btn btn-primary" style="height: 35px;">Save Financial Details</button>
                                 </div>
                             </form>
                         </div>
@@ -886,12 +897,16 @@
                                     </thead>
                                     <tbody>
                                         <tr style="font-weight: 600; background: rgba(16, 185, 129, 0.05);">
-                                            <td>Total Revenue (Student Fees Received)</td>
+                                            <td>Total Revenue (Total Income)</td>
                                             <td class="text-right" id="lbl-statement-revenue" style="color: #10b981;">₹0</td>
                                         </tr>
                                         <tr>
                                             <td style="padding-left: 20px; color: var(--text-secondary); font-size:12.5px;">• Student Enrolment Fees</td>
                                             <td class="text-right text-muted" id="lbl-statement-fees" style="font-size:12.5px;">₹0</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding-left: 20px; color: var(--text-secondary); font-size:12.5px;">• Other Revenue Sources</td>
+                                            <td class="text-right text-muted" id="lbl-statement-other-income" style="font-size:12.5px;">₹0</td>
                                         </tr>
                                         <tr style="font-weight: 600; background: rgba(244, 63, 94, 0.05); border-top: 1px solid var(--color-border);">
                                             <td>Total Operating Expenses</td>
@@ -937,10 +952,10 @@
                                     <tr>
                                         <th>Month</th>
                                         <th class="text-right">Student Fees (₹)</th>
+                                        <th class="text-right">Other Income (₹)</th>
+                                        <th class="text-right">Total Revenue (₹)</th>
                                         <th class="text-right">Staff Salaries (₹)</th>
-                                        <th class="text-right">Light Bill (₹)</th>
-                                        <th class="text-right">Water Bill (₹)</th>
-                                        <th class="text-right">Other Expenses (₹)</th>
+                                        <th class="text-right">Utility & Bills (₹)</th>
                                         <th class="text-right">Total Expenses (₹)</th>
                                         <th class="text-right">Net Profit/Loss (₹)</th>
                                         <th class="text-center" style="width: 100px;">Report</th>

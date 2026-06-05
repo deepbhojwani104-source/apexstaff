@@ -947,6 +947,8 @@
                 waterBill: 650,
                 otherExpenses: 1200,
                 otherExpensesDetails: "Internet subscription & staff tea/snacks",
+                otherIncome: 4500,
+                otherIncomeDetails: "Classroom B venue rental",
                 lastUpdated: Date.now()
             }
         };
@@ -1193,7 +1195,7 @@
     };
 
     AuraStore.getMonthlyFinance = function(monthKey) {
-        return state.finance[monthKey] || { lightBill: 0, waterBill: 0, otherExpenses: 0, otherExpensesDetails: "" };
+        return state.finance[monthKey] || { lightBill: 0, waterBill: 0, otherExpenses: 0, otherExpensesDetails: "", otherIncome: 0, otherIncomeDetails: "" };
     };
 
     AuraStore.saveMonthlyFinance = function(monthKey, data) {
@@ -1202,6 +1204,8 @@
             waterBill: Number(data.waterBill) || 0,
             otherExpenses: Number(data.otherExpenses) || 0,
             otherExpensesDetails: data.otherExpensesDetails || "",
+            otherIncome: Number(data.otherIncome) || 0,
+            otherIncomeDetails: data.otherIncomeDetails || "",
             lastUpdated: Date.now()
         };
         AuraStore.saveState();

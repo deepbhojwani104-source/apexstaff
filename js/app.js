@@ -1185,6 +1185,8 @@ document.addEventListener("DOMContentLoaded", function() {
         $("#finance-water-bill").value = savedExp.waterBill || 0;
         $("#finance-other-expenses").value = savedExp.otherExpenses || 0;
         $("#finance-other-details").value = savedExp.otherExpensesDetails || "";
+        $("#finance-other-income").value = savedExp.otherIncome || 0;
+        $("#finance-other-income-details").value = savedExp.otherIncomeDetails || "";
     }
 
     if (financeMonthSelect) {
@@ -1206,7 +1208,9 @@ document.addEventListener("DOMContentLoaded", function() {
                 lightBill: Number($("#finance-light-bill").value) || 0,
                 waterBill: Number($("#finance-water-bill").value) || 0,
                 otherExpenses: Number($("#finance-other-expenses").value) || 0,
-                otherExpensesDetails: $("#finance-other-details").value.trim()
+                otherExpensesDetails: $("#finance-other-details").value.trim(),
+                otherIncome: Number($("#finance-other-income").value) || 0,
+                otherIncomeDetails: $("#finance-other-income-details").value.trim()
             };
             
             AuraStore.saveMonthlyFinance(monthKey, data);

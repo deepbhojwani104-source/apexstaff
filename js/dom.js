@@ -1833,10 +1833,22 @@
     AuraDOM.renderFinanceView = function(monthIdx, yearVal) {
         const monthKey = `${yearVal}-${String(monthIdx + 1).padStart(2, '0')}`;
         
+        const getStudentMonthKey = (student) => {
+            if (student.enrollmentDate && student.enrollmentDate.length >= 7) {
+                return student.enrollmentDate.substring(0, 7);
+            }
+            if (student.lastUpdated) {
+                try {
+                    return new Date(student.lastUpdated).toISOString().substring(0, 7);
+                } catch (e) {}
+            }
+            return "";
+        };
+
         // Sum up student fees received in this month
         const students = AuraStore.getStudents();
         const studentFees = students
-            .filter(s => s.enrollmentDate && s.enrollmentDate.startsWith(monthKey))
+            .filter(s => getStudentMonthKey(s) === monthKey)
             .reduce((sum, s) => sum + (Number(s.amountReceived) || 0), 0);
             
         // Sum up staff salaries paid in this month
@@ -1850,9 +1862,11 @@
         const waterBill = financeData.waterBill || 0;
         const otherExpenses = financeData.otherExpenses || 0;
         const otherDetails = financeData.otherExpensesDetails || "";
+        const otherIncome = financeData.otherIncome || 0;
+        const otherIncomeDetails = financeData.otherIncomeDetails || "";
         
         // Totals
-        const totalRevenue = studentFees;
+        const totalRevenue = studentFees + otherIncome;
         const totalExpenses = staffSalaries + lightBill + waterBill + otherExpenses;
         const netProfit = totalRevenue - totalExpenses;
         
@@ -1893,6 +1907,7 @@
         // Update statement preview
         const lblRevenue = document.getElementById("lbl-statement-revenue");
         const lblFees = document.getElementById("lbl-statement-fees");
+        const lblOtherIncome = document.getElementById("lbl-statement-other-income");
         const lblExpenses = document.getElementById("lbl-statement-expenses");
         const lblSalaries = document.getElementById("lbl-statement-salaries");
         const lblLight = document.getElementById("lbl-statement-light");
@@ -1903,6 +1918,7 @@
         
         if (lblRevenue) lblRevenue.textContent = `₹${totalRevenue.toLocaleString('en-IN')}`;
         if (lblFees) lblFees.textContent = `₹${studentFees.toLocaleString('en-IN')}`;
+        if (lblOtherIncome) lblOtherIncome.textContent = `₹${otherIncome.toLocaleString('en-IN')}`;
         if (lblExpenses) lblExpenses.textContent = `₹${totalExpenses.toLocaleString('en-IN')}`;
         if (lblSalaries) lblSalaries.textContent = `₹${staffSalaries.toLocaleString('en-IN')}`;
         if (lblLight) lblLight.textContent = `₹${lightBill.toLocaleString('en-IN')}`;
@@ -1920,9 +1936,8 @@
         Object.keys(AuraStore.getAllFinance()).forEach(k => allMonths.add(k));
         Object.keys(AuraStore.getState().payroll || {}).forEach(k => allMonths.add(k));
         AuraStore.getStudents().forEach(s => {
-            if (s.enrollmentDate && s.enrollmentDate.length >= 7) {
-                allMonths.add(s.enrollmentDate.substring(0, 7));
-            }
+            const mKey = getStudentMonthKey(s);
+            if (mKey) allMonths.add(mKey);
         });
         
         const sortedMonths = Array.from(allMonths).sort().reverse();
@@ -1934,7 +1949,7 @@
             } else {
                 historyBody.innerHTML = "";
                 sortedMonths.forEach(mKey => {
-                    const mStudents = AuraStore.getStudents().filter(s => s.enrollmentDate && s.enrollmentDate.startsWith(mKey));
+                    const mStudents = AuraStore.getStudents().filter(s => getStudentMonthKey(s) === mKey);
                     const mFees = mStudents.reduce((sum, s) => sum + (Number(s.amountReceived) || 0), 0);
                     
                     const mPayroll = AuraStore.getState().payroll[mKey] || {};
@@ -1944,9 +1959,11 @@
                     const mLight = mFinance.lightBill || 0;
                     const mWater = mFinance.waterBill || 0;
                     const mOther = mFinance.otherExpenses || 0;
+                    const mOtherInc = mFinance.otherIncome || 0;
                     
+                    const mTotalRev = mFees + mOtherInc;
                     const mTotalExp = mSalaries + mLight + mWater + mOther;
-                    const mNet = mFees - mTotalExp;
+                    const mNet = mTotalRev - mTotalExp;
                     
                     const parts = mKey.split("-");
                     const yVal = parts[0];
@@ -1957,11 +1974,11 @@
                     const tr = document.createElement("tr");
                     tr.innerHTML = `
                         <td><strong>${monthName}</strong></td>
-                        <td class="text-right text-success" style="font-weight:600;">₹${mFees.toLocaleString('en-IN')}</td>
+                        <td class="text-right">₹${mFees.toLocaleString('en-IN')}</td>
+                        <td class="text-right">₹${mOtherInc.toLocaleString('en-IN')}</td>
+                        <td class="text-right text-success" style="font-weight:600;">₹${mTotalRev.toLocaleString('en-IN')}</td>
                         <td class="text-right">₹${mSalaries.toLocaleString('en-IN')}</td>
-                        <td class="text-right">₹${mLight.toLocaleString('en-IN')}</td>
-                        <td class="text-right">₹${mWater.toLocaleString('en-IN')}</td>
-                        <td class="text-right">₹${mOther.toLocaleString('en-IN')}</td>
+                        <td class="text-right">₹${(mLight + mWater + mOther).toLocaleString('en-IN')}</td>
                         <td class="text-right text-rose" style="font-weight:600;">₹${mTotalExp.toLocaleString('en-IN')}</td>
                         <td class="text-right ${mNet >= 0 ? 'text-success' : 'text-rose'}" style="font-weight:700;">₹${mNet.toLocaleString('en-IN')}</td>
                         <td class="text-center">
@@ -1989,10 +2006,22 @@
         const mNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         const selectedMonthName = mNames[monthIdx];
         
+        const getStudentMonthKey = (student) => {
+            if (student.enrollmentDate && student.enrollmentDate.length >= 7) {
+                return student.enrollmentDate.substring(0, 7);
+            }
+            if (student.lastUpdated) {
+                try {
+                    return new Date(student.lastUpdated).toISOString().substring(0, 7);
+                } catch (e) {}
+            }
+            return "";
+        };
+
         // Calculate figures
         const students = AuraStore.getStudents();
         const studentFees = students
-            .filter(s => s.enrollmentDate && s.enrollmentDate.startsWith(monthKey))
+            .filter(s => getStudentMonthKey(s) === monthKey)
             .reduce((sum, s) => sum + (Number(s.amountReceived) || 0), 0);
             
         const payrollObj = AuraStore.getState().payroll[monthKey] || {};
@@ -2004,8 +2033,10 @@
         const waterBill = financeData.waterBill || 0;
         const otherExpenses = financeData.otherExpenses || 0;
         const otherDetails = financeData.otherExpensesDetails || "Operational overheads";
+        const otherIncome = financeData.otherIncome || 0;
+        const otherIncomeDetails = financeData.otherIncomeDetails || "Other revenue";
         
-        const totalRevenue = studentFees;
+        const totalRevenue = studentFees + otherIncome;
         const totalExpenses = staffSalaries + lightBill + waterBill + otherExpenses;
         const netProfit = totalRevenue - totalExpenses;
         
@@ -2165,18 +2196,26 @@
                     <tbody>
                         <!-- Income -->
                         <tr style="font-weight: 600;">
-                            <td>Student Fees (Revenue)</td>
+                            <td>Total Income (Revenue)</td>
                             <td style="text-align: right; color: #10b981;">₹${totalRevenue.toLocaleString('en-IN')}</td>
                             <td></td>
                         </tr>
                         <tr>
-                            <td class="particular-indent">• Course Enrollments</td>
+                            <td class="particular-indent">• Course Enrollments (Student Fees)</td>
                             <td style="text-align: right; color: #64748b;">₹${studentFees.toLocaleString('en-IN')}</td>
                             <td></td>
                         </tr>
+                        <tr>
+                            <td class="particular-indent">• Other Income Sources</td>
+                            <td style="text-align: right; color: #64748b;">₹${otherIncome.toLocaleString('en-IN')}</td>
+                            <td></td>
+                        </tr>
+                        <tr style="font-size:11px; color:#94a3b8;">
+                            <td class="particular-indent" colspan="3">Income Details: ${otherIncomeDetails}</td>
+                        </tr>
 
                         <!-- Expenses -->
-                        <tr style="font-weight: 600;">
+                        <tr style="font-weight: 600; border-top: 1px solid #e2e8f0;">
                             <td>Operating Expenses</td>
                             <td></td>
                             <td style="text-align: right; color: #f43f5e;">₹${totalExpenses.toLocaleString('en-IN')}</td>
@@ -2202,7 +2241,7 @@
                             <td style="text-align: right; color: #64748b;">₹${otherExpenses.toLocaleString('en-IN')}</td>
                         </tr>
                         <tr style="font-size:11px; color:#94a3b8;">
-                            <td class="particular-indent" colspan="3">Remarks: ${otherDetails}</td>
+                            <td class="particular-indent" colspan="3">Expense Details: ${otherDetails}</td>
                         </tr>
                     </tbody>
                 </table>
