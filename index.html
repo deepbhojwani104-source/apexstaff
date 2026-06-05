@@ -110,6 +110,10 @@
                     <span class="material-symbols-outlined">inventory_2</span>
                     <span>Inventory Hub</span>
                 </a>
+                <a href="#finance" class="menu-item" data-view="finance" id="menu-finance">
+                    <span class="material-symbols-outlined">account_balance_wallet</span>
+                    <span>P&L Ledger</span>
+                </a>
                 <a href="#reports" class="menu-item" data-view="reports" id="menu-reports">
                     <span class="material-symbols-outlined">analytics</span>
                     <span>Reports Hub</span>
@@ -555,6 +559,10 @@
                                         <label for="student-due-date">Due Date</label>
                                         <input type="date" id="student-due-date">
                                     </div>
+                                    <div class="form-group">
+                                        <label for="student-enrollment-date">Enrollment Date *</label>
+                                        <input type="date" id="student-enrollment-date" required>
+                                    </div>
                                     
                                     <div class="form-group col-span-2">
                                         <label style="margin-bottom: 8px;">Fee Type *</label>
@@ -762,6 +770,186 @@
                                     </table>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- View: Profit and Loss Ledger -->
+                <section id="view-finance" class="page-view hide">
+                    <!-- Month Selector & Actions Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div class="filter-select" style="min-width: 140px;">
+                                <select id="finance-month-select" style="padding: 6px 10px; font-size:12.5px; height: 35px;"></select>
+                            </div>
+                            <div class="filter-select" style="min-width: 100px;">
+                                <select id="finance-year-select" style="padding: 6px 10px; font-size:12.5px; height: 35px;"></select>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button id="btn-print-pl-report" class="btn btn-primary" style="display: flex; align-items: center; gap: 6px; height: 35px;">
+                                <span class="material-symbols-outlined">print</span>
+                                <span>Print P&L Report</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Summary KPI Cards -->
+                    <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 25px;">
+                        <div class="stat-card glass-card">
+                            <div class="stat-icon-wrapper" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                                <span class="material-symbols-outlined">trending_up</span>
+                            </div>
+                            <div class="stat-info">
+                                <h3>Total Revenue (Fees)</h3>
+                                <p id="stat-finance-revenue" class="stat-number">₹0</p>
+                                <span class="stat-subtext">Received from students</span>
+                            </div>
+                        </div>
+                        <div class="stat-card glass-card">
+                            <div class="stat-icon-wrapper" style="background: rgba(244, 63, 94, 0.15); color: #f43f5e;">
+                                <span class="material-symbols-outlined">trending_down</span>
+                            </div>
+                            <div class="stat-info">
+                                <h3>Total Expenses</h3>
+                                <p id="stat-finance-expenses" class="stat-number">₹0</p>
+                                <span class="stat-subtext">Salaries + Bills + Operations</span>
+                            </div>
+                        </div>
+                        <div class="stat-card glass-card">
+                            <div class="stat-icon-wrapper" id="stat-finance-profit-icon-wrapper" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6;">
+                                <span class="material-symbols-outlined" id="stat-finance-profit-icon">account_balance_wallet</span>
+                            </div>
+                            <div class="stat-info">
+                                <h3>Net Profit / Loss</h3>
+                                <p id="stat-finance-profit" class="stat-number">₹0</p>
+                                <span id="stat-finance-profit-subtext" class="stat-subtext">Net cash balance</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Main Section Split Layout -->
+                    <div class="dashboard-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; align-items: start;">
+                        <!-- Left Column: Expense Form -->
+                        <div class="glass-card settings-card" style="padding: 20px;">
+                            <div class="card-header" style="margin-bottom: 15px; border-bottom: 1px solid var(--color-border); padding-bottom: 10px;">
+                                <h3 style="display:flex; align-items:center; gap:8px;">
+                                    <span class="material-symbols-outlined">edit_note</span>
+                                    <span>Record Monthly Expenses</span>
+                                </h3>
+                            </div>
+                            <form id="finance-expense-form" class="grid-form" style="display: grid; gap: 15px;">
+                                <div class="form-group">
+                                    <label for="finance-light-bill">Light Bill (Electricity) (₹)</label>
+                                    <input type="number" id="finance-light-bill" placeholder="e.g. 3500" min="0" value="0">
+                                </div>
+                                <div class="form-group">
+                                    <label for="finance-water-bill">Water Bill (₹)</label>
+                                    <input type="number" id="finance-water-bill" placeholder="e.g. 500" min="0" value="0">
+                                </div>
+                                <div class="form-group col-span-2">
+                                    <label for="finance-other-expenses">Other Expenses (Operational) (₹)</label>
+                                    <input type="number" id="finance-other-expenses" placeholder="e.g. 1500" min="0" value="0">
+                                </div>
+                                <div class="form-group col-span-2">
+                                    <label for="finance-other-details">Other Expenses Details</label>
+                                    <textarea id="finance-other-details" placeholder="Describe other operational expenses (e.g. Internet, tea, snacks, printing papers)" style="height: 70px; resize: none; font-size:12.5px; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); width:100%; outline:none;"></textarea>
+                                </div>
+                                <div class="form-group col-span-2" style="background: var(--bg-card); padding: 12px; border-radius: var(--radius-sm); border: 1px dashed var(--color-border); font-size:12.5px;">
+                                    <span style="color:var(--text-muted); font-weight:500;">Auto-Computed Expenses:</span>
+                                    <div style="display:flex; justify-content:space-between; margin-top:6px; color:var(--text-secondary);">
+                                        <span>Staff Salaries Payout:</span>
+                                        <span id="finance-salaries-auto" style="font-weight:600; color:var(--text-primary);">₹0</span>
+                                    </div>
+                                </div>
+                                <div class="form-group col-span-2 text-right" style="margin-top: 10px;">
+                                    <button type="submit" class="btn btn-primary" style="height: 35px;">Save Monthly Expenses</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Right Column: Statement Preview -->
+                        <div class="glass-card settings-card" style="padding: 20px;">
+                            <div class="card-header" style="margin-bottom: 15px; border-bottom: 1px solid var(--color-border); padding-bottom: 10px;">
+                                <h3 style="display:flex; align-items:center; gap:8px;">
+                                    <span class="material-symbols-outlined">receipt_long</span>
+                                    <span>P&L Breakdown Statement</span>
+                                </h3>
+                            </div>
+                            <div class="table-container" style="background: transparent; border: none; box-shadow: none;">
+                                <table class="table" style="font-size:13px; width: 100%;">
+                                    <thead>
+                                        <tr>
+                                            <th>Particulars</th>
+                                            <th class="text-right">Amount (₹)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr style="font-weight: 600; background: rgba(16, 185, 129, 0.05);">
+                                            <td>Total Revenue (Student Fees Received)</td>
+                                            <td class="text-right" id="lbl-statement-revenue" style="color: #10b981;">₹0</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding-left: 20px; color: var(--text-secondary); font-size:12.5px;">• Student Enrolment Fees</td>
+                                            <td class="text-right text-muted" id="lbl-statement-fees" style="font-size:12.5px;">₹0</td>
+                                        </tr>
+                                        <tr style="font-weight: 600; background: rgba(244, 63, 94, 0.05); border-top: 1px solid var(--color-border);">
+                                            <td>Total Operating Expenses</td>
+                                            <td class="text-right" id="lbl-statement-expenses" style="color: #f43f5e;">₹0</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding-left: 20px; color: var(--text-secondary); font-size:12.5px;">• Staff Salaries Payout</td>
+                                            <td class="text-right text-muted" id="lbl-statement-salaries" style="font-size:12.5px;">₹0</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding-left: 20px; color: var(--text-secondary); font-size:12.5px;">• Light Bill (Electricity)</td>
+                                            <td class="text-right text-muted" id="lbl-statement-light" style="font-size:12.5px;">₹0</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding-left: 20px; color: var(--text-secondary); font-size:12.5px;">• Water Bill</td>
+                                            <td class="text-right text-muted" id="lbl-statement-water" style="font-size:12.5px;">₹0</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding-left: 20px; color: var(--text-secondary); font-size:12.5px;">• Other Miscellaneous Expenses</td>
+                                            <td class="text-right text-muted" id="lbl-statement-other" style="font-size:12.5px;">₹0</td>
+                                        </tr>
+                                        <tr style="font-weight: 700; border-top: 2px solid var(--color-border); font-size: 13.5px; background: var(--bg-input);">
+                                            <td id="lbl-statement-net-title">Net Profit</td>
+                                            <td class="text-right" id="lbl-statement-net-amount">₹0</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Section: History Ledger -->
+                    <div class="glass-card settings-card" style="padding: 20px;">
+                        <div class="card-header" style="margin-bottom: 15px; border-bottom: 1px solid var(--color-border); padding-bottom: 10px;">
+                            <h3 style="display:flex; align-items:center; gap:8px;">
+                                    <span class="material-symbols-outlined">history</span>
+                                    <span>Historical P&L Ledger</span>
+                            </h3>
+                        </div>
+                        <div class="table-container">
+                            <table class="table" id="finance-history-table">
+                                <thead>
+                                    <tr>
+                                        <th>Month</th>
+                                        <th class="text-right">Student Fees (₹)</th>
+                                        <th class="text-right">Staff Salaries (₹)</th>
+                                        <th class="text-right">Light Bill (₹)</th>
+                                        <th class="text-right">Water Bill (₹)</th>
+                                        <th class="text-right">Other Expenses (₹)</th>
+                                        <th class="text-right">Total Expenses (₹)</th>
+                                        <th class="text-right">Net Profit/Loss (₹)</th>
+                                        <th class="text-center" style="width: 100px;">Report</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="finance-history-body">
+                                    <!-- Dynamic records -->
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </section>

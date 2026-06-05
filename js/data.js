@@ -25,6 +25,7 @@
         students: [],
         courses: [],
         inventory: [],
+        finance: {},    // 'YYYY-MM' => { lightBill, waterBill, otherExpenses, otherExpensesDetails }
         branding: { ...DEFAULT_BRANDING },
         logs: []
     };
@@ -173,6 +174,23 @@
                 document.dispatchEvent(new CustomEvent('activityLogged'));
             }
         }, err => console.error("Firestore logs snapshot error:", err));
+
+        // 9. Finance Listener
+        db.collection("finance").onSnapshot(snapshot => {
+            const data = {};
+            snapshot.forEach(doc => {
+                data[doc.id] = doc.data();
+            });
+            const isMigrated = localStorage.getItem("aurastaff_firebase_migrated") === "true";
+            if (snapshot.empty && !isMigrated) {
+                console.log("Firestore finance collection is empty; guarding local data before migration.");
+                return;
+            }
+            state.finance = data;
+            AuraStore.saveState();
+            document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "finance" } }));
+            document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "dashboard" } }));
+        }, err => console.error("Firestore finance snapshot error:", err));
     }
 
     // Initialize Firebase SDK Connection
@@ -249,6 +267,11 @@
                 batch.set(db.collection("payroll").doc(m), state.payroll[m]);
             });
 
+            // Batch writes for Finance
+            Object.keys(state.finance).forEach(m => {
+                batch.set(db.collection("finance").doc(m), state.finance[m]);
+            });
+
             // Branding profile
             batch.set(db.collection("branding").doc("current"), state.branding);
 
@@ -290,6 +313,7 @@
                     students: parsed.students || [],
                     courses: parsed.courses || [],
                     inventory: parsed.inventory || [],
+                    finance: parsed.finance || {},
                     branding: parsed.branding || { ...DEFAULT_BRANDING },
                     logs: parsed.logs || []
                 };
@@ -670,6 +694,7 @@
                         students: parsed.students || [],
                         courses: parsed.courses || [],
                         inventory: parsed.inventory || [],
+                        finance: parsed.finance || {},
                         branding: parsed.branding || { ...DEFAULT_BRANDING },
                         logs: parsed.logs || []
                     };
@@ -697,6 +722,7 @@
             state.courses.forEach(c => db.collection("courses").doc(c.name).delete().catch(e => console.error(e)));
             Object.keys(state.attendance).forEach(d => db.collection("attendance").doc(d).delete().catch(e => console.error(e)));
             Object.keys(state.payroll).forEach(k => db.collection("payroll").doc(k).delete().catch(e => console.error(e)));
+            Object.keys(state.finance).forEach(k => db.collection("finance").doc(k).delete().catch(e => console.error(e)));
             db.collection("branding").doc("current").set(DEFAULT_BRANDING).catch(e => console.error(e));
             db.collection("logs").doc("current").set({ logsList: [] }).catch(e => console.error(e));
         }
@@ -708,6 +734,7 @@
             students: [],
             courses: [],
             inventory: [],
+            finance: {},
             branding: { ...DEFAULT_BRANDING },
             logs: []
         };
@@ -891,6 +918,7 @@
                 amountReceived: 5000,
                 dueAmount: 3000,
                 dueDate: "2026-06-15",
+                enrollmentDate: "2026-05-12",
                 feeType: ["New Registration", "Registration Fee"],
                 remarks: "Wants to clear remaining dues next week.",
                 lastUpdated: Date.now()
@@ -905,11 +933,23 @@
                 amountReceived: 12000,
                 dueAmount: 0,
                 dueDate: "",
+                enrollmentDate: "2026-05-15",
                 feeType: ["New Registration"],
                 remarks: "Paid full fees up front.",
                 lastUpdated: Date.now()
             }
         ];
+
+        // Seed monthly finance entries
+        state.finance = {
+            "2026-05": {
+                lightBill: 3500,
+                waterBill: 650,
+                otherExpenses: 1200,
+                otherExpensesDetails: "Internet subscription & staff tea/snacks",
+                lastUpdated: Date.now()
+            }
+        };
 
         // Seed realistic inventory items
         state.inventory = [
@@ -1150,6 +1190,31 @@
         sessionStorage.removeItem(SESSION_KEY);
         sessionStorage.removeItem(ROLE_KEY);
         AuraStore.logActivity("Session terminated.", "info");
+    };
+
+    AuraStore.getMonthlyFinance = function(monthKey) {
+        return state.finance[monthKey] || { lightBill: 0, waterBill: 0, otherExpenses: 0, otherExpensesDetails: "" };
+    };
+
+    AuraStore.saveMonthlyFinance = function(monthKey, data) {
+        state.finance[monthKey] = {
+            lightBill: Number(data.lightBill) || 0,
+            waterBill: Number(data.waterBill) || 0,
+            otherExpenses: Number(data.otherExpenses) || 0,
+            otherExpensesDetails: data.otherExpensesDetails || "",
+            lastUpdated: Date.now()
+        };
+        AuraStore.saveState();
+        AuraStore.logActivity(`Saved financial expenses for ${monthKey}`, "success");
+
+        if (AuraStore.useFirebase && AuraStore.db) {
+            AuraStore.db.collection("finance").doc(monthKey).set(state.finance[monthKey])
+                .catch(err => console.error("Firestore saveMonthlyFinance error:", err));
+        }
+    };
+
+    AuraStore.getAllFinance = function() {
+        return state.finance || {};
     };
 
     // 11. CSV Formatting Exporters (Retained for backup if needed)

@@ -86,6 +86,7 @@ document.addEventListener("DOMContentLoaded", function() {
         payroll: "Payroll Hub",
         students: "Student Enrollment Hub",
         inventory: "Inventory Hub",
+        finance: "Profit & Loss Ledger",
         settings: "System Settings",
         reports: "Reports Hub"
     };
@@ -141,6 +142,8 @@ document.addEventListener("DOMContentLoaded", function() {
             refreshStudents();
         } else if (viewName === "inventory") {
             refreshInventory();
+        } else if (viewName === "finance") {
+            refreshFinance();
         } else if (viewName === "settings") {
             loadSettingsValues();
         } else if (viewName === "reports") {
@@ -817,6 +820,7 @@ document.addEventListener("DOMContentLoaded", function() {
             const amountReceived = Number($("#student-amount-received").value);
             const dueAmount = Number($("#student-due-amount").value);
             const dueDate = $("#student-due-date").value;
+            const enrollmentDate = $("#student-enrollment-date").value;
             const remarks = $("#student-remarks").value.trim();
 
             // Get selected courses
@@ -832,8 +836,8 @@ document.addEventListener("DOMContentLoaded", function() {
                 feeTypes.push(cb.value);
             });
 
-            if (name === "" || mobile === "" || selectedCourses.length === 0 || !branch || isNaN(amountReceived) || amountReceived < 0) {
-                AuraDOM.showToast("Please fill all mandatory fields and select at least one course.", "error");
+            if (name === "" || mobile === "" || selectedCourses.length === 0 || !branch || isNaN(amountReceived) || amountReceived < 0 || !enrollmentDate) {
+                AuraDOM.showToast("Please fill all mandatory fields and select at least one course and enrollment date.", "error");
                 return;
             }
 
@@ -851,6 +855,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 amountReceived,
                 dueAmount,
                 dueDate,
+                enrollmentDate,
                 remarks,
                 feeType: feeTypes
             };
@@ -901,6 +906,8 @@ document.addEventListener("DOMContentLoaded", function() {
         });
         $("#student-course-fee").value = 0;
         $("#student-due-amount").value = 0;
+        const todayStr = new Date().toISOString().split('T')[0];
+        $("#student-enrollment-date").value = todayStr;
         const textSpan = $("#selected-courses-text");
         if (textSpan) {
             textSpan.textContent = "Select Courses...";
@@ -939,6 +946,8 @@ document.addEventListener("DOMContentLoaded", function() {
                     $("#student-amount-received").value = student.amountReceived;
                     $("#student-due-amount").value = student.dueAmount || 0;
                     $("#student-due-date").value = student.dueDate || "";
+                    const enrollDateFallback = student.enrollmentDate || (student.lastUpdated ? new Date(student.lastUpdated).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+                    $("#student-enrollment-date").value = enrollDateFallback;
                     $("#student-remarks").value = student.remarks || "";
 
                     // Set course checkbox states
@@ -1128,6 +1137,104 @@ document.addEventListener("DOMContentLoaded", function() {
 
             downloadCSVFile(csv, `aurastaff_inventory_${new Date().toISOString().split('T')[0]}.csv`);
             AuraDOM.showToast("Inventory database CSV downloaded", "success");
+        });
+    }
+
+    // ==========================================================================
+    // 7c. Profit & Loss Ledger Actions
+    // ==========================================================================
+    // Populate month and year select elements
+    const financeMonthSelect = $("#finance-month-select");
+    const financeYearSelect = $("#finance-year-select");
+    if (financeMonthSelect && financeYearSelect) {
+        const months = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ];
+        financeMonthSelect.innerHTML = months.map((m, idx) => `<option value="${idx}">${m}</option>`).join("");
+        
+        const currentYear = new Date().getFullYear();
+        const years = [];
+        for (let y = currentYear - 2; y <= currentYear + 2; y++) {
+            years.push(y);
+        }
+        financeYearSelect.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join("");
+
+        // Set default to current month and year
+        const today = new Date();
+        financeMonthSelect.value = today.getMonth();
+        financeYearSelect.value = today.getFullYear();
+    }
+
+    function refreshFinance() {
+        const monthSel = $("#finance-month-select");
+        const yearSel = $("#finance-year-select");
+        if (!monthSel || !yearSel) return;
+        
+        const monthIdx = Number(monthSel.value);
+        const yearVal = Number(yearSel.value);
+        
+        // Render view UI
+        AuraDOM.renderFinanceView(monthIdx, yearVal);
+        
+        // Load saved expenses into input fields
+        const monthKey = `${yearVal}-${String(monthIdx + 1).padStart(2, '0')}`;
+        const savedExp = AuraStore.getMonthlyFinance(monthKey);
+        
+        $("#finance-light-bill").value = savedExp.lightBill || 0;
+        $("#finance-water-bill").value = savedExp.waterBill || 0;
+        $("#finance-other-expenses").value = savedExp.otherExpenses || 0;
+        $("#finance-other-details").value = savedExp.otherExpensesDetails || "";
+    }
+
+    if (financeMonthSelect) {
+        financeMonthSelect.addEventListener("change", refreshFinance);
+    }
+    if (financeYearSelect) {
+        financeYearSelect.addEventListener("change", refreshFinance);
+    }
+
+    const financeForm = $("#finance-expense-form");
+    if (financeForm) {
+        financeForm.addEventListener("submit", function(e) {
+            e.preventDefault();
+            const monthIdx = Number($("#finance-month-select").value);
+            const yearVal = Number($("#finance-year-select").value);
+            const monthKey = `${yearVal}-${String(monthIdx + 1).padStart(2, '0')}`;
+            
+            const data = {
+                lightBill: Number($("#finance-light-bill").value) || 0,
+                waterBill: Number($("#finance-water-bill").value) || 0,
+                otherExpenses: Number($("#finance-other-expenses").value) || 0,
+                otherExpensesDetails: $("#finance-other-details").value.trim()
+            };
+            
+            AuraStore.saveMonthlyFinance(monthKey, data);
+            AuraDOM.showToast(`Saved monthly expenses for ${monthKey}`, "success");
+            refreshFinance();
+        });
+    }
+
+    const btnPrintPL = $("#btn-print-pl-report");
+    if (btnPrintPL) {
+        btnPrintPL.addEventListener("click", () => {
+            const monthIdx = Number($("#finance-month-select").value);
+            const yearVal = Number($("#finance-year-select").value);
+            AuraDOM.printPLReport(monthIdx, yearVal);
+        });
+    }
+
+    const financeHistoryTable = $("#finance-history-table");
+    if (financeHistoryTable) {
+        financeHistoryTable.addEventListener("click", function(e) {
+            const printBtn = e.target.closest(".btn-print-pl-row");
+            if (printBtn) {
+                const monthKey = printBtn.dataset.month; // e.g. "2026-05"
+                const parts = monthKey.split("-");
+                const yearVal = Number(parts[0]);
+                const monthIdx = Number(parts[1]) - 1;
+                AuraDOM.printPLReport(monthIdx, yearVal);
+            }
         });
     }
 

@@ -2134,16 +2134,19 @@ h1, h2, h3, h4, h5, h6 {
     body * {
         visibility: hidden;
     }
-    .payslip-print-area, .payslip-print-area * {
+    .payslip-print-area, .payslip-print-area *,
+    .pl-print-area, .pl-print-area * {
         visibility: visible;
     }
-    .payslip-print-area {
+    .payslip-print-area, .pl-print-area {
         position: absolute;
         left: 0;
         top: 0;
         width: 100%;
         padding: 0;
         box-shadow: none;
+        background: white !important;
+        color: #0f172a !important;
     }
     .no-print {
         display: none !important;

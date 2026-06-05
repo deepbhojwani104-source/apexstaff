@@ -1830,5 +1830,419 @@
         }
     };
 
+    AuraDOM.renderFinanceView = function(monthIdx, yearVal) {
+        const monthKey = `${yearVal}-${String(monthIdx + 1).padStart(2, '0')}`;
+        
+        // Sum up student fees received in this month
+        const students = AuraStore.getStudents();
+        const studentFees = students
+            .filter(s => s.enrollmentDate && s.enrollmentDate.startsWith(monthKey))
+            .reduce((sum, s) => sum + (Number(s.amountReceived) || 0), 0);
+            
+        // Sum up staff salaries paid in this month
+        const payrollObj = AuraStore.getState().payroll[monthKey] || {};
+        const staffSalaries = Object.values(payrollObj)
+            .reduce((sum, p) => sum + (Number(p.netSalary) || 0), 0);
+            
+        // Retrieve manual monthly expenses
+        const financeData = AuraStore.getMonthlyFinance(monthKey);
+        const lightBill = financeData.lightBill || 0;
+        const waterBill = financeData.waterBill || 0;
+        const otherExpenses = financeData.otherExpenses || 0;
+        const otherDetails = financeData.otherExpensesDetails || "";
+        
+        // Totals
+        const totalRevenue = studentFees;
+        const totalExpenses = staffSalaries + lightBill + waterBill + otherExpenses;
+        const netProfit = totalRevenue - totalExpenses;
+        
+        // Update metric badges
+        const revStat = document.getElementById("stat-finance-revenue");
+        const expStat = document.getElementById("stat-finance-expenses");
+        const netStat = document.getElementById("stat-finance-profit");
+        const netSubtext = document.getElementById("stat-finance-profit-subtext");
+        const iconWrapper = document.getElementById("stat-finance-profit-icon-wrapper");
+        const profitIcon = document.getElementById("stat-finance-profit-icon");
+        const salariesAuto = document.getElementById("finance-salaries-auto");
+        
+        if (revStat) revStat.textContent = `₹${totalRevenue.toLocaleString('en-IN')}`;
+        if (expStat) expStat.textContent = `₹${totalExpenses.toLocaleString('en-IN')}`;
+        if (salariesAuto) salariesAuto.textContent = `₹${staffSalaries.toLocaleString('en-IN')}`;
+        
+        if (netStat) {
+            netStat.textContent = `₹${netProfit.toLocaleString('en-IN')}`;
+            if (netProfit >= 0) {
+                netStat.style.color = "var(--color-success)";
+                if (netSubtext) netSubtext.textContent = "Net surplus credit";
+                if (iconWrapper) {
+                    iconWrapper.style.background = "rgba(16, 185, 129, 0.15)";
+                    iconWrapper.style.color = "#10b981";
+                }
+                if (profitIcon) profitIcon.textContent = "trending_up";
+            } else {
+                netStat.style.color = "var(--color-danger)";
+                if (netSubtext) netSubtext.textContent = "Net deficit overhead";
+                if (iconWrapper) {
+                    iconWrapper.style.background = "rgba(244, 63, 94, 0.15)";
+                    iconWrapper.style.color = "#f43f5e";
+                }
+                if (profitIcon) profitIcon.textContent = "trending_down";
+            }
+        }
+        
+        // Update statement preview
+        const lblRevenue = document.getElementById("lbl-statement-revenue");
+        const lblFees = document.getElementById("lbl-statement-fees");
+        const lblExpenses = document.getElementById("lbl-statement-expenses");
+        const lblSalaries = document.getElementById("lbl-statement-salaries");
+        const lblLight = document.getElementById("lbl-statement-light");
+        const lblWater = document.getElementById("lbl-statement-water");
+        const lblOther = document.getElementById("lbl-statement-other");
+        const lblNetTitle = document.getElementById("lbl-statement-net-title");
+        const lblNetAmount = document.getElementById("lbl-statement-net-amount");
+        
+        if (lblRevenue) lblRevenue.textContent = `₹${totalRevenue.toLocaleString('en-IN')}`;
+        if (lblFees) lblFees.textContent = `₹${studentFees.toLocaleString('en-IN')}`;
+        if (lblExpenses) lblExpenses.textContent = `₹${totalExpenses.toLocaleString('en-IN')}`;
+        if (lblSalaries) lblSalaries.textContent = `₹${staffSalaries.toLocaleString('en-IN')}`;
+        if (lblLight) lblLight.textContent = `₹${lightBill.toLocaleString('en-IN')}`;
+        if (lblWater) lblWater.textContent = `₹${waterBill.toLocaleString('en-IN')}`;
+        if (lblOther) lblOther.textContent = `₹${otherExpenses.toLocaleString('en-IN')}`;
+        
+        if (lblNetTitle) lblNetTitle.textContent = netProfit >= 0 ? "Net Profit (Surplus)" : "Net Loss (Deficit)";
+        if (lblNetAmount) {
+            lblNetAmount.textContent = `₹${netProfit.toLocaleString('en-IN')}`;
+            lblNetAmount.style.color = netProfit >= 0 ? "#10b981" : "#f43f5e";
+        }
+        
+        // Render Historical Ledger Table
+        const allMonths = new Set();
+        Object.keys(AuraStore.getAllFinance()).forEach(k => allMonths.add(k));
+        Object.keys(AuraStore.getState().payroll || {}).forEach(k => allMonths.add(k));
+        AuraStore.getStudents().forEach(s => {
+            if (s.enrollmentDate && s.enrollmentDate.length >= 7) {
+                allMonths.add(s.enrollmentDate.substring(0, 7));
+            }
+        });
+        
+        const sortedMonths = Array.from(allMonths).sort().reverse();
+        const historyBody = document.getElementById("finance-history-body");
+        
+        if (historyBody) {
+            if (sortedMonths.length === 0) {
+                historyBody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">No historical financial records found.</td></tr>`;
+            } else {
+                historyBody.innerHTML = "";
+                sortedMonths.forEach(mKey => {
+                    const mStudents = AuraStore.getStudents().filter(s => s.enrollmentDate && s.enrollmentDate.startsWith(mKey));
+                    const mFees = mStudents.reduce((sum, s) => sum + (Number(s.amountReceived) || 0), 0);
+                    
+                    const mPayroll = AuraStore.getState().payroll[mKey] || {};
+                    const mSalaries = Object.values(mPayroll).reduce((sum, p) => sum + (Number(p.netSalary) || 0), 0);
+                    
+                    const mFinance = AuraStore.getMonthlyFinance(mKey);
+                    const mLight = mFinance.lightBill || 0;
+                    const mWater = mFinance.waterBill || 0;
+                    const mOther = mFinance.otherExpenses || 0;
+                    
+                    const mTotalExp = mSalaries + mLight + mWater + mOther;
+                    const mNet = mFees - mTotalExp;
+                    
+                    const parts = mKey.split("-");
+                    const yVal = parts[0];
+                    const mIdx = Number(parts[1]) - 1;
+                    const mNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                    const monthName = `${mNames[mIdx]} ${yVal}`;
+                    
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td><strong>${monthName}</strong></td>
+                        <td class="text-right text-success" style="font-weight:600;">₹${mFees.toLocaleString('en-IN')}</td>
+                        <td class="text-right">₹${mSalaries.toLocaleString('en-IN')}</td>
+                        <td class="text-right">₹${mLight.toLocaleString('en-IN')}</td>
+                        <td class="text-right">₹${mWater.toLocaleString('en-IN')}</td>
+                        <td class="text-right">₹${mOther.toLocaleString('en-IN')}</td>
+                        <td class="text-right text-rose" style="font-weight:600;">₹${mTotalExp.toLocaleString('en-IN')}</td>
+                        <td class="text-right ${mNet >= 0 ? 'text-success' : 'text-rose'}" style="font-weight:700;">₹${mNet.toLocaleString('en-IN')}</td>
+                        <td class="text-center">
+                            <button class="btn-icon btn-print-pl-row" data-month="${mKey}" title="Print Monthly P&L Statement" style="background:transparent; border:none; cursor:pointer;">
+                                <span class="material-symbols-outlined text-primary" style="font-size:18px;">print</span>
+                            </button>
+                        </td>
+                    `;
+                    historyBody.appendChild(tr);
+                });
+            }
+        }
+    };
+
+    AuraDOM.printPLReport = function(monthIdx, yearVal) {
+        const monthKey = `${yearVal}-${String(monthIdx + 1).padStart(2, '0')}`;
+        const branding = window.AuraStore ? window.AuraStore.getBranding() : {
+            name: "Samyak Computer Classes",
+            tagline: "Unlocking Academic Excellence",
+            email: "contact@samyak.edu",
+            phone: "9876543210",
+            address: "Above Pappu Restaurant, Chang Gate, Beawar"
+        };
+        
+        const mNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const selectedMonthName = mNames[monthIdx];
+        
+        // Calculate figures
+        const students = AuraStore.getStudents();
+        const studentFees = students
+            .filter(s => s.enrollmentDate && s.enrollmentDate.startsWith(monthKey))
+            .reduce((sum, s) => sum + (Number(s.amountReceived) || 0), 0);
+            
+        const payrollObj = AuraStore.getState().payroll[monthKey] || {};
+        const staffSalaries = Object.values(payrollObj)
+            .reduce((sum, p) => sum + (Number(p.netSalary) || 0), 0);
+            
+        const financeData = AuraStore.getMonthlyFinance(monthKey);
+        const lightBill = financeData.lightBill || 0;
+        const waterBill = financeData.waterBill || 0;
+        const otherExpenses = financeData.otherExpenses || 0;
+        const otherDetails = financeData.otherExpensesDetails || "Operational overheads";
+        
+        const totalRevenue = studentFees;
+        const totalExpenses = staffSalaries + lightBill + waterBill + otherExpenses;
+        const netProfit = totalRevenue - totalExpenses;
+        
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = '0';
+        document.body.appendChild(iframe);
+        
+        const doc = iframe.contentWindow.document;
+        doc.open();
+        doc.write(`
+            <html>
+            <head>
+                <title>P&L Statement - ${selectedMonthName} ${yearVal}</title>
+                <style>
+                    body {
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        padding: 40px;
+                        color: #1e293b;
+                        background: #ffffff;
+                        margin: 0;
+                    }
+                    .statement-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        border-bottom: 2px solid #e2e8f0;
+                        padding-bottom: 15px;
+                        margin-bottom: 25px;
+                    }
+                    .brand-details h1 {
+                        margin: 0 0 4px 0;
+                        color: #4f46e5;
+                        font-size: 22px;
+                        font-weight: 700;
+                    }
+                    .brand-details p {
+                        margin: 2px 0;
+                        color: #64748b;
+                        font-size: 11px;
+                    }
+                    .statement-meta {
+                        text-align: right;
+                    }
+                    .statement-meta h2 {
+                        margin: 0 0 4px 0;
+                        color: #1e293b;
+                        font-size: 16px;
+                        font-weight: 600;
+                    }
+                    .statement-meta p {
+                        margin: 2px 0;
+                        color: #64748b;
+                        font-size: 11px;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 20px 0;
+                    }
+                    th, td {
+                        padding: 10px 12px;
+                        text-align: left;
+                        font-size: 12px;
+                        border-bottom: 1px solid #e2e8f0;
+                    }
+                    th {
+                        background-color: #f8fafc;
+                        color: #475569;
+                        font-weight: 600;
+                    }
+                    .particular-indent {
+                        padding-left: 24px;
+                        color: #64748b;
+                    }
+                    .summary-box {
+                        margin-top: 30px;
+                        border-top: 2px dashed #cbd5e1;
+                        padding-top: 15px;
+                        display: flex;
+                        justify-content: flex-end;
+                    }
+                    .summary-card {
+                        background: #f8fafc;
+                        border: 1px solid #e2e8f0;
+                        border-radius: 6px;
+                        padding: 15px;
+                        width: 300px;
+                    }
+                    .summary-row {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 8px;
+                        font-size: 12px;
+                    }
+                    .summary-row:last-child {
+                        margin-bottom: 0;
+                        padding-top: 8px;
+                        border-top: 1px solid #e2e8f0;
+                        font-weight: 700;
+                        font-size: 13.5px;
+                    }
+                    .sig-section {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-top: 60px;
+                        padding: 0 20px;
+                    }
+                    .sig-line {
+                        border-top: 1px solid #94a3b8;
+                        width: 180px;
+                        text-align: center;
+                        font-size: 11px;
+                        color: #64748b;
+                        padding-top: 6px;
+                    }
+                    .footer {
+                        text-align: center;
+                        margin-top: 50px;
+                        font-size: 10px;
+                        color: #94a3b8;
+                        border-top: 1px solid #f1f5f9;
+                        padding-top: 15px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="statement-header">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <img src="icons/logo.png" alt="Samyak Logo" style="height: 48px; border-radius: 4px; display:block;">
+                        <div class="brand-details">
+                            <h1>${branding.name.toUpperCase()}</h1>
+                            <p>${branding.tagline || ""}</p>
+                            <p>${branding.address}</p>
+                            <p>Phone: ${branding.phone} | Email: ${branding.email}</p>
+                        </div>
+                    </div>
+                    <div class="statement-meta">
+                        <h2>Profit & Loss Statement</h2>
+                        <p style="font-weight:600; color:#4f46e5; font-size:12px;">Period: ${selectedMonthName} ${yearVal}</p>
+                        <p>Generated: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                    </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Particulars</th>
+                            <th style="text-align: right; width: 150px;">Revenue (₹)</th>
+                            <th style="text-align: right; width: 150px;">Expenses (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Income -->
+                        <tr style="font-weight: 600;">
+                            <td>Student Fees (Revenue)</td>
+                            <td style="text-align: right; color: #10b981;">₹${totalRevenue.toLocaleString('en-IN')}</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td class="particular-indent">• Course Enrollments</td>
+                            <td style="text-align: right; color: #64748b;">₹${studentFees.toLocaleString('en-IN')}</td>
+                            <td></td>
+                        </tr>
+
+                        <!-- Expenses -->
+                        <tr style="font-weight: 600;">
+                            <td>Operating Expenses</td>
+                            <td></td>
+                            <td style="text-align: right; color: #f43f5e;">₹${totalExpenses.toLocaleString('en-IN')}</td>
+                        </tr>
+                        <tr>
+                            <td class="particular-indent">• Staff Payroll (Net Salaries)</td>
+                            <td></td>
+                            <td style="text-align: right; color: #64748b;">₹${staffSalaries.toLocaleString('en-IN')}</td>
+                        </tr>
+                        <tr>
+                            <td class="particular-indent">• Light Bill (Electricity)</td>
+                            <td></td>
+                            <td style="text-align: right; color: #64748b;">₹${lightBill.toLocaleString('en-IN')}</td>
+                        </tr>
+                        <tr>
+                            <td class="particular-indent">• Water Bill</td>
+                            <td></td>
+                            <td style="text-align: right; color: #64748b;">₹${waterBill.toLocaleString('en-IN')}</td>
+                        </tr>
+                        <tr>
+                            <td class="particular-indent">• Other Miscellaneous Expenses</td>
+                            <td></td>
+                            <td style="text-align: right; color: #64748b;">₹${otherExpenses.toLocaleString('en-IN')}</td>
+                        </tr>
+                        <tr style="font-size:11px; color:#94a3b8;">
+                            <td class="particular-indent" colspan="3">Remarks: ${otherDetails}</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="summary-box">
+                    <div class="summary-card">
+                        <div class="summary-row">
+                            <span>Total Revenue:</span>
+                            <span style="color:#10b981; font-weight:600;">₹${totalRevenue.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Total Expenses:</span>
+                            <span style="color:#f43f5e; font-weight:600;">₹${totalExpenses.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>${netProfit >= 0 ? "Net Profit (Surplus):" : "Net Loss (Deficit):"}</span>
+                            <span style="color:${netProfit >= 0 ? '#10b981' : '#f43f5e'}">₹${netProfit.toLocaleString('en-IN')}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sig-section">
+                    <div class="sig-line">Prepared By</div>
+                    <div class="sig-line">Manager / Director</div>
+                </div>
+
+                <div class="footer">
+                    This Profit & Loss report is computer generated and compiled based on active student fee registers, staff payroll entries, and recorded bills.
+                </div>
+            </body>
+            </html>
+        `);
+        doc.close();
+        
+        iframe.contentWindow.onload = function() {
+            iframe.contentWindow.print();
+            setTimeout(function() {
+                document.body.removeChild(iframe);
+            }, 1000);
+        };
+    };
 
 })();
