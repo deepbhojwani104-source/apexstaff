@@ -911,8 +911,50 @@
             }
         ];
 
+        // Seed realistic inventory items
+        state.inventory = [
+            {
+                id: "INV-1001",
+                name: "Whiteboard Markers",
+                category: "Consumable",
+                quantity: 30,
+                price: 45,
+                totalAmount: 1350,
+                purchaseDate: "2026-05-10",
+                remarks: "Box of 30, Blue and Black",
+                lastUpdated: Date.now()
+            },
+            {
+                id: "INV-1002",
+                name: "Office Chairs",
+                category: "Permanent",
+                quantity: 15,
+                price: 2400,
+                totalAmount: 36000,
+                purchaseDate: "2025-12-15",
+                remarks: "Ergonomic mesh chairs for staff",
+                lastUpdated: Date.now()
+            },
+            {
+                id: "INV-1003",
+                name: "Projector Epson EH-TW",
+                category: "Permanent",
+                quantity: 2,
+                price: 42000,
+                totalAmount: 84000,
+                purchaseDate: "2026-02-20",
+                remarks: "Installed in Classrooms A and B",
+                lastUpdated: Date.now()
+            }
+        ];
+
         AuraStore.saveState();
         AuraStore.logActivity("Demo databases populated with realistic records.", "success");
+
+        // If Firebase is connected, auto-upload local data to Firebase Firestore
+        if (AuraStore.useFirebase && AuraStore.db) {
+            AuraStore.uploadLocalToFirebase();
+        }
     };
 
     // Course Master operations
