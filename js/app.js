@@ -85,6 +85,7 @@ document.addEventListener("DOMContentLoaded", function() {
         attendance: "Daily Attendance Log",
         payroll: "Payroll Hub",
         students: "Student Enrollment Hub",
+        "student-attendance": "Student Attendance Register",
         inventory: "Inventory Hub",
         finance: "Profit & Loss Ledger",
         settings: "System Settings",
@@ -92,8 +93,13 @@ document.addEventListener("DOMContentLoaded", function() {
     };
 
     function switchView(targetView) {
+        const role = AuraStore.getUserRole();
         // Enforce user role authorization limits
-        if (targetView === "payroll" && AuraStore.getUserRole() !== "admin") {
+        if (role === "faculty") {
+            if (targetView !== "students" && targetView !== "student-attendance") {
+                targetView = "student-attendance";
+            }
+        } else if (targetView === "payroll" && role !== "admin") {
             targetView = "dashboard";
         }
 
@@ -101,7 +107,8 @@ document.addEventListener("DOMContentLoaded", function() {
         
         // Hide all views, display the selected target view
         $$(".page-view").forEach(view => view.classList.add("hide"));
-        $(`#view-${targetView}`).classList.remove("hide");
+        const targetViewEl = $(`#view-${targetView}`);
+        if (targetViewEl) targetViewEl.classList.remove("hide");
 
         // Toggle Sidebar menu states
         $$(".menu-item").forEach(item => {
@@ -113,7 +120,7 @@ document.addEventListener("DOMContentLoaded", function() {
         });
 
         // Set Top Header page title
-        $("#page-title").textContent = viewTitles[targetView];
+        $("#page-title").textContent = viewTitles[targetView] || "System View";
 
         // Trigger individual view renderers
         renderViewData(targetView);
@@ -140,6 +147,8 @@ document.addEventListener("DOMContentLoaded", function() {
             refreshPayroll();
         } else if (viewName === "students") {
             refreshStudents();
+        } else if (viewName === "student-attendance") {
+            refreshStudentAttendance();
         } else if (viewName === "inventory") {
             refreshInventory();
         } else if (viewName === "finance") {
@@ -744,6 +753,14 @@ document.addEventListener("DOMContentLoaded", function() {
         updateDashboardReport();
     }
 
+    function refreshStudentAttendance() {
+        const dateInput = $("#student-attendance-date");
+        if (!dateInput) return;
+        const selectedDate = dateInput.value;
+        if (!selectedDate) return;
+        AuraDOM.renderStudentAttendance(selectedDate);
+    }
+
     // Course Master Add/Update submit
     const courseForm = $("#course-master-form");
     if (courseForm) {
@@ -815,6 +832,7 @@ document.addEventListener("DOMContentLoaded", function() {
             const editId = $("#student-edit-id").value.trim();
             const name = $("#student-name").value.trim();
             const mobile = $("#student-mobile").value.trim();
+            const parentMobile = $("#student-parent-mobile").value.trim();
             const branch = $("#student-branch").value;
             const courseFee = Number($("#student-course-fee").value);
             const amountReceived = Number($("#student-amount-received").value);
@@ -836,8 +854,8 @@ document.addEventListener("DOMContentLoaded", function() {
                 feeTypes.push(cb.value);
             });
 
-            if (name === "" || mobile === "" || selectedCourses.length === 0 || !branch || isNaN(amountReceived) || amountReceived < 0 || !enrollmentDate) {
-                AuraDOM.showToast("Please fill all mandatory fields and select at least one course and enrollment date.", "error");
+            if (name === "" || mobile === "" || parentMobile === "" || selectedCourses.length === 0 || !branch || isNaN(amountReceived) || amountReceived < 0 || !enrollmentDate) {
+                AuraDOM.showToast("Please fill all mandatory fields, select courses, enrollment date, and parent contact.", "error");
                 return;
             }
 
@@ -849,6 +867,7 @@ document.addEventListener("DOMContentLoaded", function() {
             const studentData = {
                 name,
                 mobile,
+                parentMobile,
                 course,
                 branch,
                 courseFee,
@@ -898,6 +917,8 @@ document.addEventListener("DOMContentLoaded", function() {
             studentForm.reset();
         }
         $("#student-edit-id").value = "";
+        const parentMobileInput = $("#student-parent-mobile");
+        if (parentMobileInput) parentMobileInput.value = "";
         document.querySelectorAll('input[name="fee-type-cb"]').forEach(cb => {
             cb.checked = false;
         });
@@ -932,6 +953,31 @@ document.addEventListener("DOMContentLoaded", function() {
                 }
             }
 
+            const payBtn = e.target.closest(".btn-record-payment");
+            if (payBtn) {
+                const id = payBtn.dataset.id;
+                const students = AuraStore.getStudents();
+                const student = students.find(s => s.id === id);
+                if (student) {
+                    $("#payment-student-id").value = student.id;
+                    $("#payment-student-name").value = student.name;
+                    
+                    const dueAmt = Math.max(0, Number(student.courseFee || 0) - Number(student.amountReceived || 0));
+                    $("#payment-student-due").value = dueAmt;
+                    $("#payment-amount").value = dueAmt; // Default to full due amount
+                    $("#payment-amount").max = dueAmt;
+                    $("#payment-date").value = new Date().toISOString().split('T')[0];
+                    $("#payment-remarks").value = "";
+                    
+                    // Reset checkboxes
+                    document.querySelectorAll('input[name="payment-fee-type-cb"]').forEach(cb => {
+                        cb.checked = cb.value === "Due fee";
+                    });
+                    
+                    $("#modal-record-payment").classList.remove("hide");
+                }
+            }
+
             if (editBtn) {
                 const id = editBtn.dataset.id;
                 const students = AuraStore.getStudents();
@@ -941,6 +987,8 @@ document.addEventListener("DOMContentLoaded", function() {
                     $("#student-edit-id").value = student.id;
                     $("#student-name").value = student.name;
                     $("#student-mobile").value = student.mobile || "";
+                    const parentMobileInput = $("#student-parent-mobile");
+                    if (parentMobileInput) parentMobileInput.value = student.parentMobile || student.mobile || "";
                     $("#student-branch").value = student.branch;
                     $("#student-course-fee").value = student.courseFee;
                     $("#student-amount-received").value = student.amountReceived;
@@ -1185,8 +1233,12 @@ document.addEventListener("DOMContentLoaded", function() {
         $("#finance-water-bill").value = savedExp.waterBill || 0;
         $("#finance-other-expenses").value = savedExp.otherExpenses || 0;
         $("#finance-other-details").value = savedExp.otherExpensesDetails || "";
-        $("#finance-other-income").value = savedExp.otherIncome || 0;
-        $("#finance-other-income-details").value = savedExp.otherIncomeDetails || "";
+
+        // Default date for other income
+        const otherIncDate = $("#other-income-date");
+        if (otherIncDate) {
+            otherIncDate.value = new Date().toISOString().split('T')[0];
+        }
     }
 
     if (financeMonthSelect) {
@@ -1208,9 +1260,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 lightBill: Number($("#finance-light-bill").value) || 0,
                 waterBill: Number($("#finance-water-bill").value) || 0,
                 otherExpenses: Number($("#finance-other-expenses").value) || 0,
-                otherExpensesDetails: $("#finance-other-details").value.trim(),
-                otherIncome: Number($("#finance-other-income").value) || 0,
-                otherIncomeDetails: $("#finance-other-income-details").value.trim()
+                otherExpensesDetails: $("#finance-other-details").value.trim()
             };
             
             AuraStore.saveMonthlyFinance(monthKey, data);
@@ -1548,42 +1598,69 @@ document.addEventListener("DOMContentLoaded", function() {
     // ==========================================================================
     function applyRolePrivileges() {
         const role = AuraStore.getUserRole();
-        if (role === "admin") {
-            $("#menu-payroll").classList.remove("hide");
-            $("#card-payroll-stat").classList.remove("hide");
-            $("#tile-payroll").classList.remove("hide");
-            $("#section-salary-banking-header").classList.remove("hide");
-            $("#section-salary-banking-fields").classList.remove("hide");
-            $("#report-tab-payroll").classList.remove("hide");
-        } else {
-            $("#menu-payroll").classList.add("hide");
-            $("#card-payroll-stat").classList.add("hide");
-            $("#tile-payroll").classList.add("hide");
-            $("#section-salary-banking-header").classList.add("hide");
-            $("#section-salary-banking-fields").classList.add("hide");
-            $("#report-tab-payroll").classList.add("hide");
+        
+        // Hide or show elements depending on user role
+        if (role === "faculty") {
+            // Hide other menu items
+            $$(".menu-item").forEach(item => {
+                const view = item.dataset.view;
+                if (view === "students" || view === "student-attendance") {
+                    item.classList.remove("hide");
+                } else {
+                    item.classList.add("hide");
+                }
+            });
             
-            // Redirect to dashboard if clerk somehow lands on payroll view
-            if (currentView === "payroll") {
-                switchView("dashboard");
+            // Hide header action buttons
+            const quickAdd = $("#btn-quick-add");
+            const quickAtt = $("#btn-quick-attendance");
+            if (quickAdd) quickAdd.classList.add("hide");
+            if (quickAtt) quickAtt.classList.add("hide");
+            
+            // Update User Pill
+            const avatar = $("#current-user-avatar");
+            const uName = $(".user-name");
+            const uRole = $(".user-role");
+            if (avatar) avatar.textContent = "FC";
+            if (uName) uName.textContent = "Faculty Member";
+            if (uRole) uRole.textContent = "Faculty / Teacher";
+            
+            // Redirect to student attendance view by default if not on valid view
+            if (currentView !== "students" && currentView !== "student-attendance") {
+                switchView("student-attendance");
+            }
+        } else {
+            // Restore visibility for admin/staff
+            $$(".menu-item").forEach(item => {
+                const view = item.dataset.view;
+                if (view === "payroll" && role !== "admin") {
+                    item.classList.add("hide");
+                } else {
+                    item.classList.remove("hide");
+                }
+            });
+            
+            const quickAdd = $("#btn-quick-add");
+            const quickAtt = $("#btn-quick-attendance");
+            if (quickAdd) quickAdd.classList.remove("hide");
+            if (quickAtt) quickAtt.classList.remove("hide");
+            
+            const avatar = $("#current-user-avatar");
+            const uName = $(".user-name");
+            const uRole = $(".user-role");
+            if (role === "admin") {
+                if (avatar) avatar.textContent = "AD";
+                if (uName) uName.textContent = "Administrator";
+                if (uRole) uRole.textContent = "Super Admin";
+            } else {
+                if (avatar) avatar.textContent = "ST";
+                if (uName) uName.textContent = "Staff Member";
+                if (uRole) uRole.textContent = "Office Clerk";
             }
 
-            if (activeReportTab === "payroll") {
-                activeReportTab = "faculty";
-                const tabFac = $("#report-tab-faculty");
-                if (tabFac) {
-                    $$(".report-tab-btn").forEach(b => {
-                        b.classList.remove("btn-primary");
-                        b.classList.add("btn-outline");
-                    });
-                    tabFac.classList.add("btn-primary");
-                    tabFac.classList.remove("btn-outline");
-                }
-                const fgFac = $("#filter-group-faculty");
-                if (fgFac) {
-                    $$(".filter-group-row").forEach(fg => fg.classList.add("hide"));
-                    fgFac.classList.remove("hide");
-                }
+            // Enforce clerk redirect
+            if (currentView === "payroll") {
+                switchView("dashboard");
             }
         }
     }
@@ -1698,6 +1775,210 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         });
         
+        // Record Student Payment form submit handler
+        const recordPaymentForm = $("#record-payment-form");
+        if (recordPaymentForm) {
+            recordPaymentForm.addEventListener("submit", function(e) {
+                e.preventDefault();
+                const studentId = $("#payment-student-id").value;
+                const amount = Number($("#payment-amount").value) || 0;
+                const date = $("#payment-date").value;
+                const remarks = $("#payment-remarks").value.trim();
+                
+                const feeTypes = [];
+                document.querySelectorAll('input[name="payment-fee-type-cb"]:checked').forEach(cb => {
+                    feeTypes.push(cb.value);
+                });
+                
+                if (amount <= 0 || !date || feeTypes.length === 0) {
+                    AuraDOM.showToast("Please enter valid amount, date, and select a fee type.", "error");
+                    return;
+                }
+                
+                const dueAmt = Number($("#payment-student-due").value) || 0;
+                if (amount > dueAmt) {
+                    AuraDOM.showToast("Payment amount cannot exceed remaining due balance.", "error");
+                    return;
+                }
+                
+                try {
+                    AuraStore.recordStudentPayment(studentId, {
+                        amount,
+                        date,
+                        feeType: feeTypes,
+                        remarks: remarks || "Installment payment"
+                    });
+                    
+                    $("#modal-record-payment").classList.add("hide");
+                    AuraDOM.showToast("Payment recorded successfully!", "success");
+                    
+                    // Refresh views
+                    refreshStudents();
+                    refreshFinance();
+                } catch (err) {
+                    AuraDOM.showToast(err.message, "error");
+                }
+            });
+        }
+
+        // Other Income Tracker form submit handler
+        const otherIncomeForm = $("#finance-other-income-form");
+        if (otherIncomeForm) {
+            otherIncomeForm.addEventListener("submit", function(e) {
+                e.preventDefault();
+                const monthSel = $("#finance-month-select");
+                const yearSel = $("#finance-year-select");
+                if (!monthSel || !yearSel) return;
+                const monthIdx = Number(monthSel.value);
+                const yearVal = Number(yearSel.value);
+                const monthKey = `${yearVal}-${String(monthIdx + 1).padStart(2, '0')}`;
+                
+                const amount = Number($("#other-income-amount").value) || 0;
+                const date = $("#other-income-date").value;
+                const source = $("#other-income-source").value.trim();
+                
+                if (amount <= 0 || !date || !source) {
+                    AuraDOM.showToast("Please enter a valid amount, date, and source details.", "error");
+                    return;
+                }
+                
+                AuraStore.addOtherIncome(monthKey, { amount, date, source });
+                AuraDOM.showToast(`Recorded other income of ₹${amount} successfully!`, "success");
+                otherIncomeForm.reset();
+                $("#other-income-date").value = new Date().toISOString().split('T')[0];
+                
+                // Refresh
+                refreshFinance();
+            });
+        }
+
+        // Other Income List delete click handler
+        const otherIncomeTable = $("#other-income-list-table");
+        if (otherIncomeTable) {
+            otherIncomeTable.addEventListener("click", function(e) {
+                const deleteBtn = e.target.closest(".btn-delete-other-income");
+                if (deleteBtn) {
+                    const monthSel = $("#finance-month-select");
+                    const yearSel = $("#finance-year-select");
+                    if (!monthSel || !yearSel) return;
+                    const monthIdx = Number(monthSel.value);
+                    const yearVal = Number(yearSel.value);
+                    const monthKey = `${yearVal}-${String(monthIdx + 1).padStart(2, '0')}`;
+                    
+                    const itemId = deleteBtn.dataset.id;
+                    if (confirm("Are you sure you want to delete this other income entry?")) {
+                        AuraStore.deleteOtherIncome(monthKey, itemId);
+                        AuraDOM.showToast("Other income entry deleted.", "info");
+                        refreshFinance();
+                    }
+                }
+            });
+        }
+
+        // Student Attendance handlers
+        const studentAttendanceDateInput = $("#student-attendance-date");
+        if (studentAttendanceDateInput) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            studentAttendanceDateInput.value = todayStr;
+            studentAttendanceDateInput.addEventListener("change", refreshStudentAttendance);
+        }
+
+        const btnSaveStudentAttendance = $("#btn-save-student-attendance");
+        if (btnSaveStudentAttendance) {
+            btnSaveStudentAttendance.addEventListener("click", function() {
+                const dateInput = $("#student-attendance-date");
+                if (!dateInput) return;
+                const selectedDate = dateInput.value;
+                if (!selectedDate) {
+                    AuraDOM.showToast("Please select a date.", "error");
+                    return;
+                }
+
+                const students = AuraStore.getStudents();
+                const records = {};
+
+                students.forEach(s => {
+                    const radioAbs = document.querySelector(`input[name="attendance-${s.id}"][value="Absent"]`);
+                    const remarksInput = $(`#remarks-${s.id}`);
+
+                    let status = "Present";
+                    if (radioAbs && radioAbs.checked) {
+                        status = "Absent";
+                    }
+
+                    records[s.id] = {
+                        status: status,
+                        remarks: remarksInput ? remarksInput.value.trim() : "",
+                        lastUpdated: Date.now()
+                    };
+                });
+
+                AuraStore.saveStudentAttendance(selectedDate, records);
+                AuraDOM.showToast(`Saved student attendance registers for ${selectedDate}.`, "success");
+                refreshStudentAttendance();
+            });
+        }
+
+        const btnStudentMarkAllPresent = $("#btn-student-mark-all-present");
+        if (btnStudentMarkAllPresent) {
+            btnStudentMarkAllPresent.addEventListener("click", () => {
+                document.querySelectorAll('#student-attendance-table input[type="radio"][value="Present"]').forEach(radio => {
+                    radio.checked = true;
+                });
+            });
+        }
+
+        const btnStudentMarkAllAbsent = $("#btn-student-mark-all-absent");
+        if (btnStudentMarkAllAbsent) {
+            btnStudentMarkAllAbsent.addEventListener("click", () => {
+                document.querySelectorAll('#student-attendance-table input[type="radio"][value="Absent"]').forEach(radio => {
+                    radio.checked = true;
+                });
+            });
+        }
+
+        const studentAttendanceTable = $("#student-attendance-table");
+        if (studentAttendanceTable) {
+            studentAttendanceTable.addEventListener("click", function(e) {
+                const shareBtn = e.target.closest(".btn-share-attendance");
+                if (shareBtn) {
+                    const id = shareBtn.dataset.id;
+                    const students = AuraStore.getStudents();
+                    const student = students.find(s => s.id === id);
+                    if (student) {
+                        const parentMobile = student.parentMobile || student.mobile || "";
+                        if (!parentMobile) {
+                            AuraDOM.showToast("No parent or student mobile number available.", "error");
+                            return;
+                        }
+
+                        const radioAbs = document.querySelector(`input[name="attendance-${id}"][value="Absent"]`);
+                        let status = "Present";
+                        if (radioAbs && radioAbs.checked) status = "Absent";
+
+                        const branding = AuraStore.getBranding();
+                        const instName = branding.name || "Samyak Computer Classes";
+                        
+                        let message = "";
+                        if (status === "Present") {
+                            message = `Dear Parent, today is your child ${student.name} is present. Regards, ${instName}`;
+                        } else {
+                            message = `Dear Parent, today is your child ${student.name} is absent. Please contact us for details. Regards, ${instName}`;
+                        }
+
+                        let formattedPhone = parentMobile.replace(/\D/g, '');
+                        if (formattedPhone.length === 10) {
+                            formattedPhone = "91" + formattedPhone;
+                        }
+
+                        const whatsappUrl = `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`;
+                        window.open(whatsappUrl, '_blank');
+                        AuraStore.logActivity(`Attendance WhatsApp alert sent to parent of ${student.name}`, "info");
+                    }
+                }
+            });
+        }
+
         // Load initial branding sidebar title
         const brand = AuraStore.getBranding();
         if (brand && brand.name) {

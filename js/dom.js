@@ -893,6 +893,21 @@
         }
 
         // 3. Render Student list table
+        const role = AuraStore.getUserRole();
+        const priceMaster = document.querySelector("#view-students .settings-grid > div:nth-child(1)");
+        const regForm = document.querySelector("#view-students .settings-grid > div:nth-child(2)");
+        const listCard = document.querySelector("#view-students .settings-grid > div:nth-child(3)");
+        
+        if (role === "faculty") {
+            if (priceMaster) priceMaster.style.display = "none";
+            if (regForm) regForm.style.display = "none";
+            if (listCard) listCard.className = "glass-card settings-card col-span-2";
+        } else {
+            if (priceMaster) priceMaster.style.display = "";
+            if (regForm) regForm.style.display = "";
+            if (listCard) listCard.className = "glass-card settings-card col-span-2";
+        }
+
         const studentListBody = $("#student-list-body");
         if (studentListBody) {
             studentListBody.innerHTML = "";
@@ -907,6 +922,31 @@
                     const dueAmt = Math.max(0, Number(s.courseFee || 0) - Number(s.amountReceived || 0));
                     const dueDisplay = dueAmt > 0 ? `<strong class="text-rose">₹${dueAmt.toLocaleString('en-IN')}</strong>` : `<span class="text-success" style="font-weight:600;">Paid</span>`;
                     
+                    let actionButtons = "";
+                    if (role === "faculty") {
+                        actionButtons = `
+                            <button class="btn btn-sm btn-print-receipt" data-id="${s.id}" title="Print Fee Receipt" style="padding: 4px 8px; background: var(--color-success); border-color: var(--color-success); color: white;">
+                                <span class="material-symbols-outlined" style="font-size:16px;">receipt</span>
+                            </button>
+                        `;
+                    } else {
+                        const payBtnDisabled = dueAmt === 0 ? "disabled style='opacity:0.4; cursor:not-allowed;'" : "";
+                        actionButtons = `
+                            <button class="btn btn-sm btn-print-receipt" data-id="${s.id}" title="Print Fee Receipt" style="padding: 4px 8px; background: var(--color-success); border-color: var(--color-success); color: white; display:inline-flex; align-items:center; justify-content:center;">
+                                <span class="material-symbols-outlined" style="font-size:16px;">receipt</span>
+                            </button>
+                            <button class="btn btn-sm btn-record-payment" data-id="${s.id}" title="Record Payment installment" style="padding: 4px 8px; background: rgba(79, 70, 229, 0.1); border-color: transparent; color: var(--color-primary); display:inline-flex; align-items:center; justify-content:center;" ${payBtnDisabled}>
+                                <span class="material-symbols-outlined" style="font-size:16px;">payments</span>
+                            </button>
+                            <button class="btn btn-outline btn-sm btn-edit-student" data-id="${s.id}" title="Edit details" style="display:inline-flex; align-items:center; justify-content:center;">
+                                <span class="material-symbols-outlined" style="font-size:16px;">edit</span>
+                            </button>
+                            <button class="btn btn-secondary btn-sm btn-delete-student" data-id="${s.id}" title="Delete enrollment" style="display:inline-flex; align-items:center; justify-content:center;">
+                                <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                            </button>
+                        `;
+                    }
+
                     const tr = document.createElement("tr");
                     tr.innerHTML = `
                         <td><strong>${s.id || ''}</strong></td>
@@ -922,16 +962,8 @@
                         </td>
                         <td><span style="font-size: 12px; color: var(--text-secondary); max-width: 150px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${s.remarks || ''}">${s.remarks || '-'}</span></td>
                         <td class="text-center">
-                            <div class="table-action-btn-row" style="justify-content: center;">
-                                <button class="btn btn-sm btn-print-receipt" data-id="${s.id}" title="Print Fee Receipt" style="padding: 4px 8px; background: var(--color-success); border-color: var(--color-success); color: white;">
-                                    <span class="material-symbols-outlined" style="font-size:16px;">receipt</span>
-                                </button>
-                                <button class="btn btn-outline btn-sm btn-edit-student" data-id="${s.id}" title="Edit details">
-                                    <span class="material-symbols-outlined" style="font-size:16px;">edit</span>
-                                </button>
-                                <button class="btn btn-secondary btn-sm btn-delete-student" data-id="${s.id}" title="Delete enrollment">
-                                    <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
-                                </button>
+                            <div class="table-action-btn-row" style="justify-content: center; gap: 4px;">
+                                ${actionButtons}
                             </div>
                         </td>
                     `;
@@ -941,7 +973,61 @@
         }
     };
 
-    // ==========================================================================
+    AuraDOM.renderStudentAttendance = function(selectedDate) {
+        const students = AuraStore.getStudents();
+        const studentAttendanceBody = $("#student-attendance-body");
+        if (!studentAttendanceBody) return;
+
+        studentAttendanceBody.innerHTML = "";
+        if (students.length === 0) {
+            studentAttendanceBody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">No enrolled students registered.</td>
+                </tr>
+            `;
+            return;
+        }
+
+        const attendanceRecords = AuraStore.getStudentAttendanceByDate(selectedDate);
+
+        students.forEach(s => {
+            const record = attendanceRecords[s.id] || {};
+            const status = record.status || "Present";
+            const remarksVal = record.remarks || "";
+
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td><strong>${s.id || ''}</strong></td>
+                <td>${s.name || ''}</td>
+                <td><span class="node-dept-pill" style="white-space: normal; text-align: left;">${s.course || '-'}</span></td>
+                <td>${s.parentMobile || s.mobile || '-'}</td>
+                <td class="text-center">
+                    <div style="display:flex; justify-content:center; gap:16px; align-items:center;">
+                        <label style="display:flex; align-items:center; gap:6px; margin:0; cursor:pointer; text-transform:none; font-size:13px; color:var(--text-primary);">
+                            <input type="radio" name="attendance-${s.id}" value="Present" ${status === 'Present' ? 'checked' : ''} style="width:15px; height:15px; margin:0; cursor:pointer; accent-color: var(--color-success);">
+                            <span class="text-success" style="font-weight:600;">Present</span>
+                        </label>
+                        <label style="display:flex; align-items:center; gap:6px; margin:0; cursor:pointer; text-transform:none; font-size:13px; color:var(--text-primary);">
+                            <input type="radio" name="attendance-${s.id}" value="Absent" ${status === 'Absent' ? 'checked' : ''} style="width:15px; height:15px; margin:0; cursor:pointer; accent-color: var(--color-rose);">
+                            <span class="text-rose" style="font-weight:600;">Absent</span>
+                        </label>
+                    </div>
+                </td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline btn-share-attendance" data-id="${s.id}" style="padding:4px 8px; border-color:#25D366; color:#25D366; display:inline-flex; align-items:center; gap:4px; font-size:12px; background: rgba(37, 211, 102, 0.05);" title="Send WhatsApp alert to parent">
+                        <span class="material-symbols-outlined" style="font-size:16px;">share</span>
+                        <span>Send Alert</span>
+                    </button>
+                </td>
+                <td>
+                    <input type="text" id="remarks-${s.id}" class="student-attendance-remarks" data-id="${s.id}" value="${remarksVal}" placeholder="Add attendance note..." style="padding: 6px 12px; font-size: 13px; height: 32px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); outline: none; width:100%;">
+                </td>
+            `;
+            studentAttendanceBody.appendChild(tr);
+        });
+    };
+
+    // ==========================================================================================================
     // 7. Toast Alerts Builder
     // ==========================================================================
     let toastTimeout;
@@ -1845,25 +1931,65 @@
             return "";
         };
 
-        // Sum up student fees received in this month
+        // Sum up student fees received in this month (installment payments + legacy fallback)
         const students = AuraStore.getStudents();
-        const studentFees = students
-            .filter(s => getStudentMonthKey(s) === monthKey)
-            .reduce((sum, s) => sum + (Number(s.amountReceived) || 0), 0);
+        let studentFees = 0;
+        students.forEach(s => {
+            if (s.payments && s.payments.length > 0) {
+                s.payments.forEach(p => {
+                    if (p.date && p.date.substring(0, 7) === monthKey) {
+                        studentFees += Number(p.amount) || 0;
+                    }
+                });
+            } else {
+                if (getStudentMonthKey(s) === monthKey) {
+                    studentFees += Number(s.amountReceived) || 0;
+                }
+            }
+        });
             
         // Sum up staff salaries paid in this month
         const payrollObj = AuraStore.getState().payroll[monthKey] || {};
         const staffSalaries = Object.values(payrollObj)
             .reduce((sum, p) => sum + (Number(p.netSalary) || 0), 0);
             
-        // Retrieve manual monthly expenses
+        // Retrieve manual monthly expenses & other income list
         const financeData = AuraStore.getMonthlyFinance(monthKey);
         const lightBill = financeData.lightBill || 0;
         const waterBill = financeData.waterBill || 0;
         const otherExpenses = financeData.otherExpenses || 0;
         const otherDetails = financeData.otherExpensesDetails || "";
-        const otherIncome = financeData.otherIncome || 0;
-        const otherIncomeDetails = financeData.otherIncomeDetails || "";
+        
+        const otherIncomeList = financeData.otherIncomeList || [];
+        const otherIncome = otherIncomeList.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+        
+        // Render other income list table
+        const otherIncomeListBody = document.getElementById("other-income-list-body");
+        if (otherIncomeListBody) {
+            otherIncomeListBody.innerHTML = "";
+            if (otherIncomeList.length === 0) {
+                otherIncomeListBody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-2" style="font-size:12px;">No other income recorded.</td>
+                    </tr>
+                `;
+            } else {
+                otherIncomeList.forEach(item => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td>${item.date || '-'}</td>
+                        <td>${item.source || '-'}</td>
+                        <td class="text-right">₹${Number(item.amount || 0).toLocaleString('en-IN')}</td>
+                        <td class="text-center">
+                            <button class="btn btn-outline btn-sm btn-delete-other-income" data-id="${item.id}" style="padding: 2px 6px;" title="Delete Income">
+                                <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                            </button>
+                        </td>
+                    `;
+                    otherIncomeListBody.appendChild(tr);
+                });
+            }
+        }
         
         // Totals
         const totalRevenue = studentFees + otherIncome;
@@ -1936,8 +2062,14 @@
         Object.keys(AuraStore.getAllFinance()).forEach(k => allMonths.add(k));
         Object.keys(AuraStore.getState().payroll || {}).forEach(k => allMonths.add(k));
         AuraStore.getStudents().forEach(s => {
-            const mKey = getStudentMonthKey(s);
-            if (mKey) allMonths.add(mKey);
+            if (s.payments && s.payments.length > 0) {
+                s.payments.forEach(p => {
+                    if (p.date && p.date.length >= 7) allMonths.add(p.date.substring(0, 7));
+                });
+            } else {
+                const mKey = getStudentMonthKey(s);
+                if (mKey) allMonths.add(mKey);
+            }
         });
         
         const sortedMonths = Array.from(allMonths).sort().reverse();
@@ -1949,8 +2081,20 @@
             } else {
                 historyBody.innerHTML = "";
                 sortedMonths.forEach(mKey => {
-                    const mStudents = AuraStore.getStudents().filter(s => getStudentMonthKey(s) === mKey);
-                    const mFees = mStudents.reduce((sum, s) => sum + (Number(s.amountReceived) || 0), 0);
+                    let mFees = 0;
+                    students.forEach(s => {
+                        if (s.payments && s.payments.length > 0) {
+                            s.payments.forEach(p => {
+                                if (p.date && p.date.substring(0, 7) === mKey) {
+                                    mFees += Number(p.amount) || 0;
+                                }
+                            });
+                        } else {
+                            if (getStudentMonthKey(s) === mKey) {
+                                mFees += Number(s.amountReceived) || 0;
+                            }
+                        }
+                    });
                     
                     const mPayroll = AuraStore.getState().payroll[mKey] || {};
                     const mSalaries = Object.values(mPayroll).reduce((sum, p) => sum + (Number(p.netSalary) || 0), 0);
@@ -1959,7 +2103,9 @@
                     const mLight = mFinance.lightBill || 0;
                     const mWater = mFinance.waterBill || 0;
                     const mOther = mFinance.otherExpenses || 0;
-                    const mOtherInc = mFinance.otherIncome || 0;
+                    
+                    const mOtherIncomeList = mFinance.otherIncomeList || [];
+                    const mOtherInc = mOtherIncomeList.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
                     
                     const mTotalRev = mFees + mOtherInc;
                     const mTotalExp = mSalaries + mLight + mWater + mOther;
@@ -2018,11 +2164,22 @@
             return "";
         };
 
-        // Calculate figures
+        // Calculate figures (installment payments + legacy fallback)
         const students = AuraStore.getStudents();
-        const studentFees = students
-            .filter(s => getStudentMonthKey(s) === monthKey)
-            .reduce((sum, s) => sum + (Number(s.amountReceived) || 0), 0);
+        let studentFees = 0;
+        students.forEach(s => {
+            if (s.payments && s.payments.length > 0) {
+                s.payments.forEach(p => {
+                    if (p.date && p.date.substring(0, 7) === monthKey) {
+                        studentFees += Number(p.amount) || 0;
+                    }
+                });
+            } else {
+                if (getStudentMonthKey(s) === monthKey) {
+                    studentFees += Number(s.amountReceived) || 0;
+                }
+            }
+        });
             
         const payrollObj = AuraStore.getState().payroll[monthKey] || {};
         const staffSalaries = Object.values(payrollObj)
@@ -2033,8 +2190,14 @@
         const waterBill = financeData.waterBill || 0;
         const otherExpenses = financeData.otherExpenses || 0;
         const otherDetails = financeData.otherExpensesDetails || "Operational overheads";
-        const otherIncome = financeData.otherIncome || 0;
-        const otherIncomeDetails = financeData.otherIncomeDetails || "Other revenue";
+        
+        const otherIncomeList = financeData.otherIncomeList || [];
+        const otherIncome = otherIncomeList.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+        
+        let otherIncomeDetails = "No other income details recorded";
+        if (otherIncomeList.length > 0) {
+            otherIncomeDetails = otherIncomeList.map(item => `${item.source}: ₹${item.amount} (${item.date})`).join(', ');
+        }
         
         const totalRevenue = studentFees + otherIncome;
         const totalExpenses = staffSalaries + lightBill + waterBill + otherExpenses;

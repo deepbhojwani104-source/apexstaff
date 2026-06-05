@@ -25,7 +25,8 @@
         students: [],
         courses: [],
         inventory: [],
-        finance: {},    // 'YYYY-MM' => { lightBill, waterBill, otherExpenses, otherExpensesDetails }
+        finance: {},    // 'YYYY-MM' => { lightBill, waterBill, otherExpenses, otherExpensesDetails, otherIncomeList }
+        studentAttendance: {}, // 'YYYY-MM-DD' => { studentId: { status, remarks, lastUpdated } }
         branding: { ...DEFAULT_BRANDING },
         logs: []
     };
@@ -191,6 +192,22 @@
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "finance" } }));
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "dashboard" } }));
         }, err => console.error("Firestore finance snapshot error:", err));
+
+        // 10. Student Attendance Listener
+        db.collection("studentAttendance").onSnapshot(snapshot => {
+            const attend = {};
+            snapshot.forEach(doc => {
+                attend[doc.id] = doc.data();
+            });
+            const isMigrated = localStorage.getItem("aurastaff_firebase_migrated") === "true";
+            if (snapshot.empty && !isMigrated) {
+                console.log("Firestore studentAttendance collection is empty; guarding local data before migration.");
+                return;
+            }
+            state.studentAttendance = attend;
+            AuraStore.saveState();
+            document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "student-attendance" } }));
+        }, err => console.error("Firestore studentAttendance snapshot error:", err));
     }
 
     // Initialize Firebase SDK Connection
@@ -272,6 +289,11 @@
                 batch.set(db.collection("finance").doc(m), state.finance[m]);
             });
 
+            // Batch writes for Student Attendance
+            Object.keys(state.studentAttendance || {}).forEach(d => {
+                batch.set(db.collection("studentAttendance").doc(d), state.studentAttendance[d]);
+            });
+
             // Branding profile
             batch.set(db.collection("branding").doc("current"), state.branding);
 
@@ -314,6 +336,7 @@
                     courses: parsed.courses || [],
                     inventory: parsed.inventory || [],
                     finance: parsed.finance || {},
+                    studentAttendance: parsed.studentAttendance || {},
                     branding: parsed.branding || { ...DEFAULT_BRANDING },
                     logs: parsed.logs || []
                 };
@@ -723,6 +746,7 @@
             Object.keys(state.attendance).forEach(d => db.collection("attendance").doc(d).delete().catch(e => console.error(e)));
             Object.keys(state.payroll).forEach(k => db.collection("payroll").doc(k).delete().catch(e => console.error(e)));
             Object.keys(state.finance).forEach(k => db.collection("finance").doc(k).delete().catch(e => console.error(e)));
+            Object.keys(state.studentAttendance || {}).forEach(d => db.collection("studentAttendance").doc(d).delete().catch(e => console.error(e)));
             db.collection("branding").doc("current").set(DEFAULT_BRANDING).catch(e => console.error(e));
             db.collection("logs").doc("current").set({ logsList: [] }).catch(e => console.error(e));
         }
@@ -735,6 +759,7 @@
             courses: [],
             inventory: [],
             finance: {},
+            studentAttendance: {},
             branding: { ...DEFAULT_BRANDING },
             logs: []
         };
@@ -1052,6 +1077,18 @@
             studentObj.id = `STU-${nextNum}`;
         }
         studentObj.lastUpdated = Date.now();
+        
+        // Initialize payments array if missing
+        if (!studentObj.payments || studentObj.payments.length === 0) {
+            studentObj.payments = [{
+                id: "PAY-" + Date.now().toString().slice(-6),
+                amount: Number(studentObj.amountReceived) || 0,
+                date: studentObj.enrollmentDate || new Date().toISOString().split('T')[0],
+                feeType: studentObj.feeType || ["New Registration"],
+                remarks: studentObj.remarks || "Initial registration payment"
+            }];
+        }
+        
         state.students.push(studentObj);
         AuraStore.saveState();
         AuraStore.logActivity(`Enrolled student ${studentObj.name} (${studentObj.id}) for ${studentObj.course}`, "success");
@@ -1071,6 +1108,40 @@
             throw new Error("Student not found.");
         }
         updatedFields.lastUpdated = Date.now();
+        
+        const oldStudent = state.students[index];
+        let payments = oldStudent.payments || [];
+        if (payments.length === 0 && (Number(oldStudent.amountReceived) || 0) > 0) {
+            payments = [{
+                id: "PAY-" + Date.now().toString().slice(-6),
+                amount: Number(oldStudent.amountReceived) || 0,
+                date: oldStudent.enrollmentDate || new Date(oldStudent.lastUpdated || Date.now()).toISOString().split('T')[0],
+                feeType: oldStudent.feeType || ["New Registration"],
+                remarks: oldStudent.remarks || "Legacy initial payment"
+            }];
+        }
+        
+        const newAmount = Number(updatedFields.amountReceived) || 0;
+        const sumPayments = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        
+        if (newAmount !== sumPayments) {
+            if (newAmount > sumPayments) {
+                payments.push({
+                    id: "PAY-" + Date.now().toString().slice(-6),
+                    amount: newAmount - sumPayments,
+                    date: updatedFields.enrollmentDate || new Date().toISOString().split('T')[0],
+                    feeType: updatedFields.feeType || ["Due fee"],
+                    remarks: "Form direct edit adjustment"
+                });
+            } else {
+                if (payments.length > 0) {
+                    payments[0].amount = newAmount;
+                    payments = payments.filter((p, i) => i === 0 || p.amount > 0);
+                }
+            }
+        }
+        
+        updatedFields.payments = payments;
         state.students[index] = { ...state.students[index], ...updatedFields };
         AuraStore.saveState();
         AuraStore.logActivity(`Updated details for student ${state.students[index].name} (${id})`, "info");
@@ -1183,6 +1254,11 @@
             sessionStorage.setItem(ROLE_KEY, "staff");
             AuraStore.logActivity("Staff session authenticated.", "success");
             return true;
+        } else if (username === "faculty" && password === "faculty123") {
+            sessionStorage.setItem(SESSION_KEY, "true");
+            sessionStorage.setItem(ROLE_KEY, "faculty");
+            AuraStore.logActivity("Faculty session authenticated.", "success");
+            return true;
         }
         AuraStore.logActivity(`Failed login attempt for user: ${username}`, "warning");
         return false;
@@ -1195,17 +1271,33 @@
     };
 
     AuraStore.getMonthlyFinance = function(monthKey) {
-        return state.finance[monthKey] || { lightBill: 0, waterBill: 0, otherExpenses: 0, otherExpensesDetails: "", otherIncome: 0, otherIncomeDetails: "" };
+        const defaultFin = { lightBill: 0, waterBill: 0, otherExpenses: 0, otherExpensesDetails: "", otherIncomeList: [] };
+        const fin = state.finance[monthKey];
+        if (!fin) return defaultFin;
+        
+        // Migrate legacy otherIncome to otherIncomeList if needed
+        if (fin.otherIncomeList === undefined) {
+            fin.otherIncomeList = [];
+            if (Number(fin.otherIncome) > 0) {
+                fin.otherIncomeList.push({
+                    id: "INC-" + Date.now().toString().slice(-6),
+                    amount: Number(fin.otherIncome),
+                    date: `${monthKey}-01`,
+                    source: fin.otherIncomeDetails || "Legacy Other Income"
+                });
+            }
+        }
+        return fin;
     };
 
     AuraStore.saveMonthlyFinance = function(monthKey, data) {
+        const existing = state.finance[monthKey] || {};
         state.finance[monthKey] = {
             lightBill: Number(data.lightBill) || 0,
             waterBill: Number(data.waterBill) || 0,
             otherExpenses: Number(data.otherExpenses) || 0,
             otherExpensesDetails: data.otherExpensesDetails || "",
-            otherIncome: Number(data.otherIncome) || 0,
-            otherIncomeDetails: data.otherIncomeDetails || "",
+            otherIncomeList: data.otherIncomeList || existing.otherIncomeList || [],
             lastUpdated: Date.now()
         };
         AuraStore.saveState();
@@ -1217,8 +1309,100 @@
         }
     };
 
+    AuraStore.addOtherIncome = function(monthKey, item) {
+        if (!state.finance[monthKey]) {
+            state.finance[monthKey] = { lightBill: 0, waterBill: 0, otherExpenses: 0, otherExpensesDetails: "", otherIncomeList: [] };
+        }
+        const fin = state.finance[monthKey];
+        if (!fin.otherIncomeList) fin.otherIncomeList = [];
+        
+        item.id = item.id || "INC-" + Date.now().toString().slice(-6);
+        item.amount = Number(item.amount) || 0;
+        fin.otherIncomeList.push(item);
+        fin.lastUpdated = Date.now();
+        
+        AuraStore.saveState();
+        AuraStore.logActivity(`Added other income ₹${item.amount} (${item.source}) for ${monthKey}`, "success");
+        
+        if (AuraStore.useFirebase && AuraStore.db) {
+            AuraStore.db.collection("finance").doc(monthKey).set(fin)
+                .catch(err => console.error("Firestore addOtherIncome error:", err));
+        }
+        return fin;
+    };
+    
+    AuraStore.deleteOtherIncome = function(monthKey, itemId) {
+        const fin = state.finance[monthKey];
+        if (!fin || !fin.otherIncomeList) return;
+        
+        const idx = fin.otherIncomeList.findIndex(i => i.id === itemId);
+        if (idx !== -1) {
+            const amount = fin.otherIncomeList[idx].amount;
+            const source = fin.otherIncomeList[idx].source;
+            fin.otherIncomeList.splice(idx, 1);
+            fin.lastUpdated = Date.now();
+            
+            AuraStore.saveState();
+            AuraStore.logActivity(`Deleted other income ₹${amount} (${source}) for ${monthKey}`, "warning");
+            
+            if (AuraStore.useFirebase && AuraStore.db) {
+                AuraStore.db.collection("finance").doc(monthKey).set(fin)
+                    .catch(err => console.error("Firestore deleteOtherIncome error:", err));
+            }
+        }
+    };
+
     AuraStore.getAllFinance = function() {
         return state.finance || {};
+    };
+
+    AuraStore.getStudentAttendanceByDate = function(dateStr) {
+        return state.studentAttendance[dateStr] || {};
+    };
+
+    AuraStore.saveStudentAttendance = function(dateStr, records) {
+        Object.keys(records).forEach(studentId => {
+            records[studentId].lastUpdated = Date.now();
+        });
+        state.studentAttendance[dateStr] = records;
+        AuraStore.saveState();
+        AuraStore.logActivity(`Saved student attendance registers for ${dateStr}.`, "success");
+
+        if (AuraStore.useFirebase && AuraStore.db) {
+            AuraStore.db.collection("studentAttendance").doc(dateStr).set(records)
+                .catch(err => console.error("Firestore saveStudentAttendance error:", err));
+        }
+    };
+
+    AuraStore.recordStudentPayment = function(studentId, paymentObj) {
+        if (!state.students) return;
+        const index = state.students.findIndex(s => s.id === studentId);
+        if (index === -1) {
+            throw new Error("Student not found.");
+        }
+        const student = state.students[index];
+        if (!student.payments) {
+            student.payments = [];
+        }
+        
+        const amount = Number(paymentObj.amount) || 0;
+        paymentObj.id = paymentObj.id || "PAY-" + Date.now().toString().slice(-6);
+        paymentObj.amount = amount;
+        
+        student.payments.push(paymentObj);
+        student.amountReceived = (Number(student.amountReceived) || 0) + amount;
+        student.dueAmount = Math.max(0, (Number(student.courseFee) || 0) - student.amountReceived);
+        student.lastUpdated = Date.now();
+        
+        AuraStore.saveState();
+        AuraStore.logActivity(`Recorded payment of ₹${amount} for student ${student.name} (${studentId})`, "success");
+        
+        if (AuraStore.useFirebase && AuraStore.db) {
+            AuraStore.db.collection("students").doc(studentId).set(student)
+                .catch(err => console.error("Firestore recordStudentPayment error:", err));
+        }
+        
+        return student;
     };
 
     // 11. CSV Formatting Exporters (Retained for backup if needed)

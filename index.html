@@ -106,6 +106,10 @@
                     <span class="material-symbols-outlined">local_library</span>
                     <span>Student Enrollment</span>
                 </a>
+                <a href="#student-attendance" class="menu-item" data-view="student-attendance" id="menu-student-attendance">
+                    <span class="material-symbols-outlined">how_to_reg</span>
+                    <span>Student Attendance</span>
+                </a>
                 <a href="#inventory" class="menu-item" data-view="inventory">
                     <span class="material-symbols-outlined">inventory_2</span>
                     <span>Inventory Hub</span>
@@ -521,9 +525,13 @@
                                     </div>
                                     <div class="form-group">
                                         <label for="student-mobile">Mobile No *</label>
-                                        <input type="tel" id="student-mobile" placeholder="10-digit mobile number" pattern="[0-9]{10}" required>
+                                        <input type="tel" id="student-mobile" placeholder="10-digit student mobile" pattern="[0-9]{10}" required>
                                     </div>
                                     <div class="form-group">
+                                        <label for="student-parent-mobile">Parent Mobile No *</label>
+                                        <input type="tel" id="student-parent-mobile" placeholder="10-digit parent mobile" pattern="[0-9]{10}" required>
+                                    </div>
+                                    <div class="form-group col-span-2">
                                         <label for="student-branch">Branch *</label>
                                         <div class="filter-select">
                                             <select id="student-branch" required>
@@ -632,6 +640,55 @@
                             </div>
                         </div>
 
+                    </div>
+                </section>
+
+                <!-- View: Student Attendance Log -->
+                <section id="view-student-attendance" class="page-view hide">
+                    <!-- Date Selector & Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label for="student-attendance-date" style="font-weight:600; font-size:13.5px; color: var(--text-secondary);">Attendance Date:</label>
+                            <input type="date" id="student-attendance-date" style="padding: 6px 12px; font-size:13px; height: 35px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); outline: none;">
+                        </div>
+                        <div>
+                            <button id="btn-save-student-attendance" class="btn btn-primary" style="height: 35px; display: flex; align-items: center; gap: 6px;">
+                                <span class="material-symbols-outlined" style="font-size:18px;">save</span>
+                                <span>Save Student Attendance</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Students Attendance Table -->
+                    <div class="glass-card settings-card" style="padding: 20px;">
+                        <div class="card-header" style="margin-bottom: 15px; border-bottom: 1px solid var(--color-border); padding-bottom: 10px; display:flex; justify-content:space-between; align-items:center; flex-wrap: wrap; gap: 10px;">
+                            <h3 style="display:flex; align-items:center; gap:8px; margin:0;">
+                                <span class="material-symbols-outlined">how_to_reg</span>
+                                <span>Mark Student Attendance</span>
+                            </h3>
+                            <div style="display:flex; gap:10px;">
+                                <button class="btn btn-secondary btn-sm" id="btn-student-mark-all-present" style="padding: 4px 8px; font-size:12px;">Mark All Present</button>
+                                <button class="btn btn-secondary btn-sm" id="btn-student-mark-all-absent" style="padding: 4px 8px; font-size:12px;">Mark All Absent</button>
+                            </div>
+                        </div>
+                        <div class="table-container table-responsive-container">
+                            <table class="table" id="student-attendance-table" style="width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Student Name</th>
+                                        <th>Courses</th>
+                                        <th>Parent Contact</th>
+                                        <th class="text-center" style="width: 180px;">Status</th>
+                                        <th class="text-center" style="width: 150px;">Parent Alert</th>
+                                        <th>Remarks</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="student-attendance-body">
+                                    <!-- Dynamic student records with radio toggles and WhatsApp share button -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </section>
 
@@ -830,53 +887,91 @@
 
                     <!-- Main Section Split Layout -->
                     <div class="dashboard-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; align-items: start;">
-                        <!-- Left Column: Expense Form -->
-                        <div class="glass-card settings-card" style="padding: 20px;">
-                            <div class="card-header" style="margin-bottom: 15px; border-bottom: 1px solid var(--color-border); padding-bottom: 10px;">
-                                <h3 style="display:flex; align-items:center; gap:8px;">
-                                    <span class="material-symbols-outlined">edit_note</span>
-                                    <span>Record Monthly Financial Details</span>
-                                </h3>
-                            </div>
-                            <form id="finance-expense-form" class="grid-form" style="display: grid; gap: 15px;">
-                                <div class="form-group">
-                                    <label for="finance-light-bill">Light Bill (Electricity) (₹)</label>
-                                    <input type="number" id="finance-light-bill" placeholder="e.g. 3500" min="0" value="0">
+                        <!-- Left Column: stacked forms -->
+                        <div style="display: flex; flex-direction: column; gap: 20px;">
+                            <!-- Card 1: Expense Form -->
+                            <div class="glass-card settings-card" style="padding: 20px;">
+                                <div class="card-header" style="margin-bottom: 15px; border-bottom: 1px solid var(--color-border); padding-bottom: 10px;">
+                                    <h3 style="display:flex; align-items:center; gap:8px;">
+                                        <span class="material-symbols-outlined">edit_note</span>
+                                        <span>Record Monthly Bills / Expenses</span>
+                                    </h3>
                                 </div>
-                                <div class="form-group">
-                                    <label for="finance-water-bill">Water Bill (₹)</label>
-                                    <input type="number" id="finance-water-bill" placeholder="e.g. 500" min="0" value="0">
-                                </div>
-                                <div class="form-group col-span-2">
-                                    <label for="finance-other-expenses">Other Expenses (Operational) (₹)</label>
-                                    <input type="number" id="finance-other-expenses" placeholder="e.g. 1500" min="0" value="0">
-                                </div>
-                                <div class="form-group col-span-2">
-                                    <label for="finance-other-details">Other Expenses Details</label>
-                                    <textarea id="finance-other-details" placeholder="Describe other operational expenses (e.g. Internet, tea, snacks, printing papers)" style="height: 70px; resize: none; font-size:12.5px; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); width:100%; outline:none;"></textarea>
-                                </div>
-                                <div class="form-group col-span-2" style="border-top: 1px dashed var(--color-border); padding-top: 10px; margin-top: 5px;">
-                                    <label style="font-weight: 600; color: var(--color-success); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom: 8px; display:block;">Other Revenue Source</label>
-                                </div>
-                                <div class="form-group col-span-2">
-                                    <label for="finance-other-income">Other Income Received (₹)</label>
-                                    <input type="number" id="finance-other-income" placeholder="e.g. 5000" min="0" value="0">
-                                </div>
-                                <div class="form-group col-span-2">
-                                    <label for="finance-other-income-details">Other Income Details / Source</label>
-                                    <input type="text" id="finance-other-income-details" placeholder="Describe other income (e.g. rent, seminars, consultancy)" style="font-size:12.5px; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); width:100%; outline:none; height: 35px;">
-                                </div>
-                                <div class="form-group col-span-2" style="background: var(--bg-card); padding: 12px; border-radius: var(--radius-sm); border: 1px dashed var(--color-border); font-size:12.5px;">
-                                    <span style="color:var(--text-muted); font-weight:500;">Auto-Computed Expenses:</span>
-                                    <div style="display:flex; justify-content:space-between; margin-top:6px; color:var(--text-secondary);">
-                                        <span>Staff Salaries Payout:</span>
-                                        <span id="finance-salaries-auto" style="font-weight:600; color:var(--text-primary);">₹0</span>
+                                <form id="finance-expense-form" class="grid-form" style="display: grid; gap: 15px;">
+                                    <div class="form-group">
+                                        <label for="finance-light-bill">Light Bill (Electricity) (₹)</label>
+                                        <input type="number" id="finance-light-bill" placeholder="e.g. 3500" min="0" value="0">
                                     </div>
+                                    <div class="form-group">
+                                        <label for="finance-water-bill">Water Bill (₹)</label>
+                                        <input type="number" id="finance-water-bill" placeholder="e.g. 500" min="0" value="0">
+                                    </div>
+                                    <div class="form-group col-span-2">
+                                        <label for="finance-other-expenses">Other Expenses (Operational) (₹)</label>
+                                        <input type="number" id="finance-other-expenses" placeholder="e.g. 1500" min="0" value="0">
+                                    </div>
+                                    <div class="form-group col-span-2">
+                                        <label for="finance-other-details">Other Expenses Details</label>
+                                        <textarea id="finance-other-details" placeholder="Describe other operational expenses (e.g. Internet, tea, snacks, printing papers)" style="height: 70px; resize: none; font-size:12.5px; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); width:100%; outline:none;"></textarea>
+                                    </div>
+                                    <div class="form-group col-span-2" style="background: var(--bg-card); padding: 12px; border-radius: var(--radius-sm); border: 1px dashed var(--color-border); font-size:12.5px;">
+                                        <span style="color:var(--text-muted); font-weight:500;">Auto-Computed Expenses:</span>
+                                        <div style="display:flex; justify-content:space-between; margin-top:6px; color:var(--text-secondary);">
+                                            <span>Staff Salaries Payout:</span>
+                                            <span id="finance-salaries-auto" style="font-weight:600; color:var(--text-primary);">₹0</span>
+                                        </div>
+                                    </div>
+                                    <div class="form-group col-span-2 text-right" style="margin-top: 10px;">
+                                        <button type="submit" class="btn btn-primary" style="height: 35px;">Save Financial Details</button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- Card 2: Other Income Sources -->
+                            <div class="glass-card settings-card" style="padding: 20px;">
+                                <div class="card-header" style="margin-bottom: 15px; border-bottom: 1px solid var(--color-border); padding-bottom: 10px;">
+                                    <h3 style="display:flex; align-items:center; gap:8px; margin:0;">
+                                        <span class="material-symbols-outlined">add_card</span>
+                                        <span>Other Income Tracker</span>
+                                    </h3>
                                 </div>
-                                <div class="form-group col-span-2 text-right" style="margin-top: 10px;">
-                                    <button type="submit" class="btn btn-primary" style="height: 35px;">Save Financial Details</button>
+                                <form id="finance-other-income-form" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px;">
+                                    <div class="form-group col-span-2">
+                                        <label for="other-income-amount">Income Amount (₹) *</label>
+                                        <input type="number" id="other-income-amount" placeholder="e.g. 5000" min="1" required style="height: 35px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); outline: none; padding: 0 10px; font-size: 13px; width: 100%;">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="other-income-date">Date *</label>
+                                        <input type="date" id="other-income-date" required style="height: 35px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); outline: none; padding: 0 10px; font-size: 13px; width: 100%;">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="other-income-source">Source / Details *</label>
+                                        <input type="text" id="other-income-source" placeholder="e.g. venue rent, seminars" required style="height: 35px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); outline: none; padding: 0 10px; font-size: 13px; width: 100%;">
+                                    </div>
+                                    <div class="form-group col-span-2 text-right" style="margin-top: 5px;">
+                                        <button type="submit" class="btn btn-secondary btn-sm" style="height: 35px; display: inline-flex; align-items: center; gap: 4px; padding: 0 12px; font-size: 13px;">
+                                            <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
+                                            <span>Add Income</span>
+                                        </button>
+                                    </div>
+                                </form>
+
+                                <div class="table-responsive-container" style="max-height: 180px; overflow-y: auto;">
+                                    <table class="data-table" id="other-income-list-table" style="font-size: 12.5px; width: 100%;">
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Source Details</th>
+                                                <th class="text-right">Amount</th>
+                                                <th class="text-center" style="width: 50px;">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="other-income-list-body">
+                                            <!-- Injected dynamically -->
+                                        </tbody>
+                                    </table>
                                 </div>
-                            </form>
+                            </div>
                         </div>
 
                         <!-- Right Column: Statement Preview -->
@@ -1494,6 +1589,72 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline btn-close-modal">Cancel</button>
                     <button type="submit" class="btn btn-primary">Apply Adjustments</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Record Student Payment -->
+    <div id="modal-record-payment" class="modal-overlay hide">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Record Student Payment</h3>
+                <button class="modal-close btn-close-modal">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <form id="record-payment-form">
+                <input type="hidden" id="payment-student-id">
+                
+                <div class="grid-form" style="display: grid; gap: 15px;">
+                    <div class="form-group col-span-2">
+                        <label>Student Name</label>
+                        <input type="text" id="payment-student-name" readonly class="input-readonly">
+                    </div>
+                    <div class="form-group">
+                        <label>Remaining Due (₹)</label>
+                        <input type="text" id="payment-student-due" readonly class="input-readonly">
+                    </div>
+                    <div class="form-group">
+                        <label for="payment-amount">Payment Amount (₹) *</label>
+                        <input type="number" id="payment-amount" placeholder="e.g. 3000" min="1" required>
+                    </div>
+                    <div class="form-group col-span-2">
+                        <label for="payment-date">Payment Date *</label>
+                        <input type="date" id="payment-date" required>
+                    </div>
+                    
+                    <div class="form-group col-span-2">
+                        <label style="margin-bottom: 8px;">Fee Type *</label>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; text-transform: none; font-size:13px;">
+                                <input type="checkbox" name="payment-fee-type-cb" value="New Registration" style="width:auto; height:auto; margin:0; cursor:pointer;">
+                                New Registration
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; text-transform: none; font-size:13px;">
+                                <input type="checkbox" name="payment-fee-type-cb" value="Late fee" style="width:auto; height:auto; margin:0; cursor:pointer;">
+                                Late Fee
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; text-transform: none; font-size:13px;">
+                                <input type="checkbox" name="payment-fee-type-cb" value="Due fee" checked style="width:auto; height:auto; margin:0; cursor:pointer;">
+                                Due Fee
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; text-transform: none; font-size:13px;">
+                                <input type="checkbox" name="payment-fee-type-cb" value="Registration fee" style="width:auto; height:auto; margin:0; cursor:pointer;">
+                                Registration Fee
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group col-span-2">
+                        <label for="payment-remarks">Remarks</label>
+                        <input type="text" id="payment-remarks" placeholder="e.g. Second installment, Cash payment">
+                    </div>
+                </div>
+
+                <div class="modal-footer" style="margin-top: 20px;">
+                    <button type="button" class="btn btn-outline btn-close-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Payment</button>
                 </div>
             </form>
         </div>
