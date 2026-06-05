@@ -19,7 +19,7 @@
   "id": "/apexstaff/",
   "scope": "/apexstaff/",
   "start_url": "/apexstaff/index.html",
-  "background_color": "#0d0e12",
+  "background_color": "#f4f5fa",
   "theme_color": "#4f46e5",
   "display": "standalone",
   "orientation": "any"

@@ -183,7 +183,7 @@ document.addEventListener("DOMContentLoaded", function() {
     // ==========================================================================
     function initTheme() {
         const themeToggleBtn = $("#theme-toggle-btn");
-        const currentTheme = localStorage.getItem("aurastaff_theme") || "dark";
+        const currentTheme = localStorage.getItem("aurastaff_theme") || "light";
         
         document.documentElement.setAttribute("data-theme", currentTheme);
         
