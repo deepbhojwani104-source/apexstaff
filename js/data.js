@@ -26,12 +26,7 @@
         courses: [],
         inventory: [],
         branding: { ...DEFAULT_BRANDING },
-        logs: [],
-        sheetsUrlStaff: "",
-        sheetsUrlAttendance: "",
-        autoSync: false,
-        syncStaff: true,
-        syncAttendance: true
+        logs: []
     };
 
     // Keys for LocalStorage
@@ -52,12 +47,15 @@
             snapshot.forEach(doc => {
                 list.push(doc.data());
             });
-            if (list.length > 0 || AuraStore.useFirebase) {
-                state.staff = list;
-                AuraStore.saveState();
-                document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "directory" } }));
-                document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "dashboard" } }));
+            const isMigrated = localStorage.getItem("aurastaff_firebase_migrated") === "true";
+            if (snapshot.empty && !isMigrated) {
+                console.log("Firestore staff collection is empty; guarding local data before migration.");
+                return;
             }
+            state.staff = list;
+            AuraStore.saveState();
+            document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "directory" } }));
+            document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "dashboard" } }));
         }, err => console.error("Firestore staff snapshot error:", err));
 
         // 2. Attendance Listener
@@ -66,6 +64,11 @@
             snapshot.forEach(doc => {
                 attend[doc.id] = doc.data();
             });
+            const isMigrated = localStorage.getItem("aurastaff_firebase_migrated") === "true";
+            if (snapshot.empty && !isMigrated) {
+                console.log("Firestore attendance collection is empty; guarding local data before migration.");
+                return;
+            }
             state.attendance = attend;
             AuraStore.saveState();
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "attendance" } }));
@@ -78,6 +81,11 @@
             snapshot.forEach(doc => {
                 pay[doc.id] = doc.data();
             });
+            const isMigrated = localStorage.getItem("aurastaff_firebase_migrated") === "true";
+            if (snapshot.empty && !isMigrated) {
+                console.log("Firestore payroll collection is empty; guarding local data before migration.");
+                return;
+            }
             state.payroll = pay;
             AuraStore.saveState();
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "payroll" } }));
@@ -90,6 +98,11 @@
             snapshot.forEach(doc => {
                 list.push(doc.data());
             });
+            const isMigrated = localStorage.getItem("aurastaff_firebase_migrated") === "true";
+            if (snapshot.empty && !isMigrated) {
+                console.log("Firestore students collection is empty; guarding local data before migration.");
+                return;
+            }
             state.students = list;
             AuraStore.saveState();
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "students" } }));
@@ -102,6 +115,11 @@
             snapshot.forEach(doc => {
                 list.push(doc.data());
             });
+            const isMigrated = localStorage.getItem("aurastaff_firebase_migrated") === "true";
+            if (snapshot.empty && !isMigrated) {
+                console.log("Firestore courses collection is empty; guarding local data before migration.");
+                return;
+            }
             state.courses = list;
             AuraStore.saveState();
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "students" } }));
@@ -113,6 +131,11 @@
             snapshot.forEach(doc => {
                 list.push(doc.data());
             });
+            const isMigrated = localStorage.getItem("aurastaff_firebase_migrated") === "true";
+            if (snapshot.empty && !isMigrated) {
+                console.log("Firestore inventory collection is empty; guarding local data before migration.");
+                return;
+            }
             state.inventory = list;
             AuraStore.saveState();
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "inventory" } }));
@@ -121,6 +144,11 @@
 
         // 7. Branding Listener
         db.collection("branding").doc("current").onSnapshot(doc => {
+            const isMigrated = localStorage.getItem("aurastaff_firebase_migrated") === "true";
+            if (!doc.exists && !isMigrated) {
+                console.log("Firestore branding doc is missing; guarding local branding before migration.");
+                return;
+            }
             if (doc.exists) {
                 state.branding = doc.data();
                 AuraStore.saveState();
@@ -134,6 +162,11 @@
 
         // 8. Logs Listener
         db.collection("logs").doc("current").onSnapshot(doc => {
+            const isMigrated = localStorage.getItem("aurastaff_firebase_migrated") === "true";
+            if (!doc.exists && !isMigrated) {
+                console.log("Firestore logs doc is missing; guarding local logs before migration.");
+                return;
+            }
             if (doc.exists) {
                 state.logs = doc.data().logsList || [];
                 AuraStore.saveState();
@@ -224,6 +257,7 @@
 
             batch.commit()
                 .then(() => {
+                    localStorage.setItem("aurastaff_firebase_migrated", "true");
                     AuraStore.logActivity("Local records successfully migrated to Firestore cloud.", "success");
                     if (callback) callback(null, true);
                 })
@@ -257,12 +291,7 @@
                     courses: parsed.courses || [],
                     inventory: parsed.inventory || [],
                     branding: parsed.branding || { ...DEFAULT_BRANDING },
-                    logs: parsed.logs || [],
-                    sheetsUrlStaff: parsed.sheetsUrlStaff || "",
-                    sheetsUrlAttendance: parsed.sheetsUrlAttendance || "",
-                    autoSync: parsed.autoSync || false,
-                    syncStaff: parsed.syncStaff !== false,
-                    syncAttendance: parsed.syncAttendance !== false
+                    logs: parsed.logs || []
                 };
             }
             
@@ -278,6 +307,17 @@
     // 2. Save State to storage
     AuraStore.saveState = function() {
         try {
+            const isMigrated = localStorage.getItem("aurastaff_firebase_migrated") === "true";
+            if (AuraStore.useFirebase && isMigrated) {
+                // If Firebase is active and migrated, do not save data arrays to LocalStorage.
+                // We only save branding and logs.
+                const minimalState = {
+                    branding: state.branding,
+                    logs: state.logs
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(minimalState));
+                return;
+            }
             localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         } catch (e) {
             console.error("Error saving state", e);
@@ -1070,54 +1110,7 @@
         AuraStore.logActivity("Session terminated.", "info");
     };
 
-    // 10. Google Sheets URL Configuration
-    AuraStore.getSheetsUrlStaff = function() {
-        return "https://script.google.com/macros/s/AKfycbyZB6qhhKaWtgMwU-K39nIpy3dcALX31nZR9Sz1z_qUaRfSZTwuXfEtRC4EWX3pNEl6/exec";
-    };
-
-    AuraStore.setSheetsUrlStaff = function(url) {
-        // Hardcoded, no-op
-    };
-
-    AuraStore.getSheetsUrlAttendance = function() {
-        return "https://script.google.com/macros/s/AKfycbz9POgB-0p2R2HmDmToSYU2Y7qCFNlwL5OQbBSJs1dVnHJp5-JvrXmx5syPs15duk-I/exec";
-    };
-
-    AuraStore.setSheetsUrlAttendance = function(url) {
-        // Hardcoded, no-op
-    };
-
-    AuraStore.getAutoSync = function() {
-        return state.autoSync || false;
-    };
-
-    AuraStore.setAutoSync = function(enabled) {
-        state.autoSync = !!enabled;
-        AuraStore.saveState();
-        AuraStore.logActivity(`Google Sheets Auto-Sync toggled to ${state.autoSync ? 'Enabled' : 'Disabled'}.`, "info");
-    };
-
-    AuraStore.getSyncStaff = function() {
-        return state.syncStaff !== false;
-    };
-
-    AuraStore.setSyncStaff = function(enabled) {
-        state.syncStaff = !!enabled;
-        AuraStore.saveState();
-        AuraStore.logActivity(`Google Sheets Staff Sync option toggled to ${state.syncStaff ? 'Enabled' : 'Disabled'}.`, "info");
-    };
-
-    AuraStore.getSyncAttendance = function() {
-        return state.syncAttendance !== false;
-    };
-
-    AuraStore.setSyncAttendance = function(enabled) {
-        state.syncAttendance = !!enabled;
-        AuraStore.saveState();
-        AuraStore.logActivity(`Google Sheets Attendance Sync option toggled to ${state.syncAttendance ? 'Enabled' : 'Disabled'}.`, "info");
-    };
-
-    // 11. CSV Formatting Exporters
+    // 11. CSV Formatting Exporters (Retained for backup if needed)
     AuraStore.exportStaffCSV = function() {
         let csv = "Staff ID,Name,Email,Phone,Gender,Department,Designation,Joining Date,Status,Base Salary,Salary Type,Bank Name,Account No,IFSC\n";
         state.staff.forEach(s => {
@@ -1143,873 +1136,5 @@
         });
         return csv;
     };
-
-    // 12. Google Sheets Web App Synchronization API Call
-    AuraStore.postPayload = function(url, payload, callback) {
-        fetch(url, {
-            method: "POST",
-            headers: {
-                "Content-Type": "text/plain;charset=utf-8"
-            },
-            body: JSON.stringify(payload)
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(result => {
-            if (result && result.success) {
-                AuraStore.logActivity("Successfully pushed data to Google Sheet.", "success");
-                if (callback) callback(null);
-            } else {
-                const errMsg = result ? result.error || result.message : "Unknown error";
-                AuraStore.logActivity(`Google Sheet Sync Error: ${errMsg}`, "danger");
-                if (callback) callback(errMsg);
-            }
-        })
-        .catch(error => {
-            console.error("Sync URL error:", error);
-            AuraStore.logActivity(`Sync Failed: ${error.message}. Ensure your URL is a deployed Web App URL and NOT a spreadsheet link.`, "danger");
-            if (callback) callback(error.message);
-        });
-    };
-
-    AuraStore.syncAll = function(callback) {
-        const syncStaff = AuraStore.getSyncStaff();
-        const syncAttendance = AuraStore.getSyncAttendance();
-        const urlStaff = AuraStore.getSheetsUrlStaff();
-        const urlAttendance = AuraStore.getSheetsUrlAttendance();
-
-        let pendingPulls = 0;
-        let pullErrors = [];
-        let pulledStaff = [];
-        let pulledAttendance = {};
-        let pulledPayroll = {};
-        let pulledStudents = [];
-        let pulledCourses = [];
-        let pulledInventory = [];
-
-        if (syncStaff && urlStaff) pendingPulls++;
-        if (syncAttendance && urlAttendance) pendingPulls++;
-
-        if (pendingPulls === 0) {
-            if (callback) callback("No active sync URLs configured or selected in options.", false);
-            return;
-        }
-
-        // Helper to perform POST push after pulling and merging
-        function pushMergedState() {
-            let pendingPushes = 0;
-            let pushErrors = [];
-
-            if (syncStaff && urlStaff) pendingPushes++;
-            if (syncAttendance && urlAttendance) pendingPushes++;
-
-            function pushDone(err) {
-                if (err) pushErrors.push(err);
-                pendingPushes--;
-                if (pendingPushes === 0) {
-                    if (pushErrors.length > 0) {
-                        if (callback) callback("Push failed: " + pushErrors.join(", "), false);
-                    } else {
-                        if (callback) callback(null, true);
-                    }
-                }
-            }
-
-            if (syncStaff && urlStaff) {
-                const payload = {
-                    branding: state.branding,
-                    staff: state.staff,
-                    payroll: state.payroll,
-                    students: state.students,
-                    courses: state.courses,
-                    inventory: state.inventory || [],
-                    options: {
-                        syncStaff: true,
-                        syncAttendance: false
-                    }
-                };
-                AuraStore.postPayload(urlStaff, payload, pushDone);
-            }
-
-            if (syncAttendance && urlAttendance) {
-                const payload = {
-                    branding: state.branding,
-                    staff: state.staff,
-                    attendance: state.attendance,
-                    students: state.students,
-                    courses: state.courses,
-                    inventory: state.inventory || [],
-                    options: {
-                        syncStaff: false,
-                        syncAttendance: true
-                    }
-                };
-                AuraStore.postPayload(urlAttendance, payload, pushDone);
-            }
-        }
-
-        // Helper to merge pulled data into local state
-        function mergeData() {
-            // 1. Merge Staff list
-            if (pulledStaff && pulledStaff.length > 0) {
-                // Deduplicate pulled staff by id, keeping the one with the latest lastUpdated
-                const dedupedPulledStaffMap = {};
-                pulledStaff.forEach(s => {
-                    if (s && s.id) {
-                        if (s.joiningDate) {
-                            const parsedDate = new Date(s.joiningDate);
-                            if (!isNaN(parsedDate.getTime())) {
-                                const y = parsedDate.getFullYear();
-                                const m = String(parsedDate.getMonth() + 1).padStart(2, '0');
-                                const d = String(parsedDate.getDate()).padStart(2, '0');
-                                s.joiningDate = `${y}-${m}-${d}`;
-                            }
-                        }
-                        const existing = dedupedPulledStaffMap[s.id];
-                        if (!existing || (s.lastUpdated || 0) > (existing.lastUpdated || 0)) {
-                            dedupedPulledStaffMap[s.id] = s;
-                        }
-                    }
-                });
-                const cleanPulledStaff = Object.values(dedupedPulledStaffMap);
-
-                const localStaffMap = {};
-                state.staff.forEach(s => localStaffMap[s.id] = s);
-
-                const mergedStaff = [];
-                const processedLocalIds = new Set();
-
-                cleanPulledStaff.forEach(pulled => {
-                    const local = localStaffMap[pulled.id];
-                    if (local) {
-                        const localTime = local.lastUpdated || 0;
-                        const pulledTime = pulled.lastUpdated || 0;
-                        if (pulledTime >= localTime) {
-                            mergedStaff.push({
-                                ...local,
-                                ...pulled
-                            });
-                        } else {
-                            mergedStaff.push(local);
-                        }
-                        processedLocalIds.add(pulled.id);
-                    } else {
-                        mergedStaff.push(pulled);
-                    }
-                });
-
-                state.staff.forEach(s => {
-                    if (!processedLocalIds.has(s.id)) {
-                        mergedStaff.push(s);
-                        processedLocalIds.add(s.id);
-                    }
-                });
-
-                state.staff = mergedStaff;
-            }
-
-            // 2. Merge Attendance Logs
-            if (pulledAttendance && Object.keys(pulledAttendance).length > 0) {
-                Object.keys(pulledAttendance).forEach(dateStr => {
-                    if (!state.attendance[dateStr]) {
-                        state.attendance[dateStr] = pulledAttendance[dateStr];
-                    } else {
-                        const localRecords = state.attendance[dateStr];
-                        const pulledRecords = pulledAttendance[dateStr];
-                        
-                        Object.keys(pulledRecords).forEach(staffId => {
-                            const localRec = localRecords[staffId];
-                            const pulledRec = pulledRecords[staffId];
-                            if (!localRec) {
-                                localRecords[staffId] = pulledRec;
-                            } else {
-                                const localTime = localRec.lastUpdated || 0;
-                                const pulledTime = pulledRec.lastUpdated || 0;
-                                if (pulledTime >= localTime) {
-                                    localRecords[staffId] = {
-                                        ...localRec,
-                                        ...pulledRec
-                                    };
-                                }
-                            }
-                        });
-                    }
-                });
-            }
-
-            // 3. Merge Payroll
-            if (pulledPayroll && Object.keys(pulledPayroll).length > 0) {
-                const normalizedPulledPayroll = {};
-                Object.keys(pulledPayroll).forEach(rawKey => {
-                    let normKey = rawKey.trim();
-                    const parsedDate = new Date(rawKey);
-                    if (!isNaN(parsedDate.getTime())) {
-                        const y = parsedDate.getFullYear();
-                        const m = String(parsedDate.getMonth() + 1).padStart(2, '0');
-                        normKey = `${y}-${m}`;
-                    }
-                    normalizedPulledPayroll[normKey] = pulledPayroll[rawKey];
-                });
-
-                Object.keys(normalizedPulledPayroll).forEach(monthKey => {
-                    if (!state.payroll[monthKey]) {
-                        state.payroll[monthKey] = normalizedPulledPayroll[monthKey];
-                    } else {
-                        const localMonth = state.payroll[monthKey];
-                        const pulledMonth = normalizedPulledPayroll[monthKey];
-                        Object.keys(pulledMonth).forEach(staffId => {
-                            const localRec = localMonth[staffId];
-                            const pulledRec = pulledMonth[staffId];
-                            if (!localRec) {
-                                localMonth[staffId] = pulledRec;
-                            } else {
-                                const localTime = localRec.lastUpdated || 0;
-                                const pulledTime = pulledRec.lastUpdated || 0;
-                                if (pulledTime >= localTime) {
-                                    localMonth[staffId] = {
-                                        ...localRec,
-                                        ...pulledRec
-                                    };
-                                }
-                            }
-                        });
-                    }
-                });
-            }
-
-            // 4. Merge Students
-            if (pulledStudents && pulledStudents.length > 0) {
-                // Deduplicate pulled students by id, keeping the one with the latest lastUpdated
-                const dedupedPulledStudentsMap = {};
-                pulledStudents.forEach(s => {
-                    if (s && s.id) {
-                        if (s.dueDate) {
-                            const parsedDate = new Date(s.dueDate);
-                            if (!isNaN(parsedDate.getTime())) {
-                                const y = parsedDate.getFullYear();
-                                const m = String(parsedDate.getMonth() + 1).padStart(2, '0');
-                                const d = String(parsedDate.getDate()).padStart(2, '0');
-                                s.dueDate = `${y}-${m}-${d}`;
-                            }
-                        }
-                        const existing = dedupedPulledStudentsMap[s.id];
-                        if (!existing || (s.lastUpdated || 0) > (existing.lastUpdated || 0)) {
-                            dedupedPulledStudentsMap[s.id] = s;
-                        }
-                    }
-                });
-                const cleanPulledStudents = Object.values(dedupedPulledStudentsMap);
-
-                const localStudentsMap = {};
-                if (!state.students) state.students = [];
-                state.students.forEach(s => localStudentsMap[s.id] = s);
-
-                const mergedStudents = [];
-                const processedLocalIds = new Set();
-
-                cleanPulledStudents.forEach(pulled => {
-                    const local = localStudentsMap[pulled.id];
-                    if (local) {
-                        const localTime = local.lastUpdated || 0;
-                        const pulledTime = pulled.lastUpdated || 0;
-                        if (pulledTime >= localTime) {
-                            mergedStudents.push({
-                                ...local,
-                                ...pulled
-                            });
-                        } else {
-                            mergedStudents.push(local);
-                        }
-                        processedLocalIds.add(pulled.id);
-                    } else {
-                        mergedStudents.push(pulled);
-                    }
-                });
-
-                state.students.forEach(s => {
-                    if (!processedLocalIds.has(s.id)) {
-                        mergedStudents.push(s);
-                        processedLocalIds.add(s.id);
-                    }
-                });
-
-                state.students = mergedStudents;
-            }
-
-            // 5. Merge Courses
-            if (pulledCourses && pulledCourses.length > 0) {
-                // Deduplicate pulled courses by name, keeping the one with the latest lastUpdated
-                const dedupedPulledCoursesMap = {};
-                pulledCourses.forEach(c => {
-                    if (c && c.name) {
-                        const nameKey = c.name.toLowerCase();
-                        const existing = dedupedPulledCoursesMap[nameKey];
-                        if (!existing || (c.lastUpdated || 0) > (existing.lastUpdated || 0)) {
-                            dedupedPulledCoursesMap[nameKey] = c;
-                        }
-                    }
-                });
-                const cleanPulledCourses = Object.values(dedupedPulledCoursesMap);
-
-                const localCoursesMap = {};
-                if (!state.courses) state.courses = [];
-                state.courses.forEach(c => localCoursesMap[c.name.toLowerCase()] = c);
-
-                const mergedCourses = [];
-                const processedLocalNames = new Set();
-
-                cleanPulledCourses.forEach(pulled => {
-                    const nameKey = pulled.name.toLowerCase();
-                    const local = localCoursesMap[nameKey];
-                    if (local) {
-                        const localTime = local.lastUpdated || 0;
-                        const pulledTime = pulled.lastUpdated || 0;
-                        if (pulledTime >= localTime) {
-                            mergedCourses.push({
-                                ...local,
-                                ...pulled
-                            });
-                        } else {
-                            mergedCourses.push(local);
-                        }
-                        processedLocalNames.add(nameKey);
-                    } else {
-                        mergedCourses.push(pulled);
-                    }
-                });
-
-                state.courses.forEach(c => {
-                    const nameKey = c.name.toLowerCase();
-                    if (!processedLocalNames.has(nameKey)) {
-                        mergedCourses.push(c);
-                        processedLocalNames.add(nameKey);
-                    }
-                });
-
-                state.courses = mergedCourses;
-            }
-
-            // 6. Merge Inventory
-            if (pulledInventory && pulledInventory.length > 0) {
-                // Deduplicate pulled inventory by id, keeping the one with the latest lastUpdated
-                const dedupedPulledInventoryMap = {};
-                pulledInventory.forEach(item => {
-                    if (item && item.id) {
-                        if (item.purchaseDate) {
-                            const parsedDate = new Date(item.purchaseDate);
-                            if (!isNaN(parsedDate.getTime())) {
-                                const y = parsedDate.getFullYear();
-                                const m = String(parsedDate.getMonth() + 1).padStart(2, '0');
-                                const d = String(parsedDate.getDate()).padStart(2, '0');
-                                item.purchaseDate = `${y}-${m}-${d}`;
-                            }
-                        }
-                        const existing = dedupedPulledInventoryMap[item.id];
-                        if (!existing || (item.lastUpdated || 0) > (existing.lastUpdated || 0)) {
-                            dedupedPulledInventoryMap[item.id] = item;
-                        }
-                    }
-                });
-                const cleanPulledInventory = Object.values(dedupedPulledInventoryMap);
-
-                const localInventoryMap = {};
-                if (!state.inventory) state.inventory = [];
-                state.inventory.forEach(item => localInventoryMap[item.id] = item);
-
-                const mergedInventory = [];
-                const processedLocalIds = new Set();
-
-                cleanPulledInventory.forEach(pulled => {
-                    const local = localInventoryMap[pulled.id];
-                    if (local) {
-                        const localTime = local.lastUpdated || 0;
-                        const pulledTime = pulled.lastUpdated || 0;
-                        if (pulledTime >= localTime) {
-                            mergedInventory.push({
-                                ...local,
-                                ...pulled
-                            });
-                        } else {
-                            mergedInventory.push(local);
-                        }
-                        processedLocalIds.add(pulled.id);
-                    } else {
-                        mergedInventory.push(pulled);
-                    }
-                });
-
-                state.inventory.forEach(item => {
-                    if (!processedLocalIds.has(item.id)) {
-                        mergedInventory.push(item);
-                        processedLocalIds.add(item.id);
-                    }
-                });
-
-                state.inventory = mergedInventory;
-            }
-
-            AuraStore.saveState();
-        }
-
-        // Start pulling
-        function pullDone(err, data, type) {
-            if (err) {
-                pullErrors.push(`${type}: ${err}`);
-            } else if (data) {
-                if (type === "staff" && data.staff) {
-                    pulledStaff = data.staff;
-                    pulledPayroll = data.payroll || {};
-                    if (data.students && (pulledStudents.length === 0 || data.students.length > 0)) {
-                        pulledStudents = data.students;
-                    }
-                    if (data.courses && (pulledCourses.length === 0 || data.courses.length > 0)) {
-                        pulledCourses = data.courses;
-                    }
-                    if (data.inventory && (pulledInventory.length === 0 || data.inventory.length > 0)) {
-                        pulledInventory = data.inventory;
-                    }
-                } else if (type === "attendance" && data.attendance) {
-                    pulledAttendance = data.attendance;
-                    if (data.students && (pulledStudents.length === 0 || data.students.length > 0)) {
-                        pulledStudents = data.students;
-                    }
-                    if (data.courses && (pulledCourses.length === 0 || data.courses.length > 0)) {
-                        pulledCourses = data.courses;
-                    }
-                    if (data.inventory && (pulledInventory.length === 0 || data.inventory.length > 0)) {
-                        pulledInventory = data.inventory;
-                    }
-                }
-            }
-
-            pendingPulls--;
-            if (pendingPulls === 0) {
-                if (pullErrors.length > 0) {
-                    console.warn("Pull errors occurred during sync, merging partial data:", pullErrors);
-                }
-                
-                mergeData();
-                pushMergedState();
-            }
-        }
-
-        if (syncStaff && urlStaff) {
-            fetch(urlStaff)
-                .then(res => {
-                    if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
-                    return res.json();
-                })
-                .then(data => pullDone(null, data, "staff"))
-                .catch(err => pullDone(err.message, null, "staff"));
-        }
-
-        if (syncAttendance && urlAttendance) {
-            fetch(urlAttendance)
-                .then(res => {
-                    if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
-                    return res.json();
-                })
-                .then(data => pullDone(null, data, "attendance"))
-                .catch(err => pullDone(err.message, null, "attendance"));
-        }
-    };
-
-    // Copyable Google Apps Script Template
-    AuraStore.GOOGLE_SCRIPT_TEMPLATE = `function doGet(e) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var result = { success: true, staff: [], attendance: {}, payroll: {}, students: [], courses: [], inventory: [] };
-  
-  try {
-    // 1. Read Faculty details from Sheet1
-    var staffSheet = ss.getSheetByName("Sheet1") || ss.getSheets()[0];
-    if (staffSheet) {
-      var lastRow = staffSheet.getLastRow();
-      if (lastRow > 1) {
-        var staffRows = staffSheet.getRange(2, 1, lastRow - 1, 15).getValues();
-        staffRows.forEach(function(row) {
-          if (row[0]) {
-            result.staff.push({
-              id: String(row[0]),
-              name: String(row[1]),
-              joiningDate: row[2] instanceof Date ? Utilities.formatDate(row[2], Session.getScriptTimeZone(), "yyyy-MM-dd") : String(row[2]),
-              department: String(row[3]),
-              designation: String(row[4]),
-              baseSalary: Number(row[5]),
-              status: String(row[6]),
-              email: String(row[7] || ""),
-              phone: String(row[8] || ""),
-              gender: String(row[9] || "Male"),
-              salaryType: String(row[10] || "Standard"),
-              bankName: String(row[11] || ""),
-              bankAccount: String(row[12] || ""),
-              bankIfsc: String(row[13] || ""),
-              lastUpdated: row[14] ? Number(row[14]) : Date.now()
-            });
-          }
-        });
-      }
-    }
-    
-    // 2. Read Attendance logs from Attendance tab
-    var attendSheet = ss.getSheetByName("Attendance");
-    if (attendSheet) {
-      var lastRow = attendSheet.getLastRow();
-      if (lastRow > 1) {
-        var attendRows = attendSheet.getRange(2, 1, lastRow - 1, 7).getValues();
-        attendRows.forEach(function(row) {
-          if (row[0] && row[2]) {
-            var staffId = String(row[0]);
-            var dateStr = row[2] instanceof Date ? Utilities.formatDate(row[2], Session.getScriptTimeZone(), "yyyy-MM-dd") : String(row[2]);
-            var checkIn = String(row[3] || "");
-            var checkOut = String(row[4] || "");
-            var status = String(row[5]);
-            var remarks = String(row[6] || "");
-            
-            if (!result.attendance[dateStr]) {
-              result.attendance[dateStr] = {};
-            }
-            result.attendance[dateStr][staffId] = {
-              status: status,
-              checkIn: checkIn,
-              checkOut: checkOut,
-              remarks: remarks,
-              lastUpdated: Date.now()
-            };
-          }
-        });
-      }
-    }
-
-    // 3. Read Payroll registers from Payroll tab
-    var payrollSheet = ss.getSheetByName("Payroll");
-    if (payrollSheet) {
-      var lastRow = payrollSheet.getLastRow();
-      if (lastRow > 1) {
-        var payrollRows = payrollSheet.getRange(2, 1, lastRow - 1, 10).getValues();
-        payrollRows.forEach(function(row) {
-          if (row[0] && row[1]) {
-            var monthKey = row[0] instanceof Date ? Utilities.formatDate(row[0], Session.getScriptTimeZone(), "yyyy-MM") : String(row[0]);
-            var staffId = String(row[1]);
-            if (!result.payroll[monthKey]) {
-              result.payroll[monthKey] = {};
-            }
-            result.payroll[monthKey][staffId] = {
-              baseSalary: Number(row[2]),
-              allowances: Number(row[3]),
-              deductions: Number(row[4]),
-              absentDeductions: Number(row[5]),
-              netSalary: Number(row[6]),
-              status: String(row[7]),
-              remarks: String(row[8] || ""),
-              lastUpdated: row[9] ? Number(row[9]) : Date.now()
-            };
-          }
-        });
-      }
-    }
-
-    // 4. Read Enrolled Students from student details tab
-    var studentsSheet = ss.getSheetByName("student details");
-    if (studentsSheet) {
-      var lastRow = studentsSheet.getLastRow();
-      if (lastRow > 1) {
-        var studentRows = studentsSheet.getRange(2, 1, lastRow - 1, 11).getValues();
-        studentRows.forEach(function(row) {
-          if (row[0]) {
-            result.students.push({
-              id: String(row[0]),
-              name: String(row[1]),
-              mobile: String(row[2] || ""),
-              course: String(row[3]),
-              courseFee: Number(row[4]),
-              amountReceived: Number(row[5]),
-              dueDate: row[6] instanceof Date ? Utilities.formatDate(row[6], Session.getScriptTimeZone(), "yyyy-MM-dd") : String(row[6] || ""),
-              dueAmount: Number(row[7]),
-              feeType: row[8] ? String(row[8]).split(",").map(function(t) { return t.trim(); }).filter(Boolean) : [],
-              remarks: String(row[9] || ""),
-              lastUpdated: row[10] ? Number(row[10]) : Date.now()
-            });
-          }
-        });
-      }
-    }
-
-    // 5. Read Courses from Courses tab
-    var coursesSheet = ss.getSheetByName("Courses");
-    if (coursesSheet) {
-      var lastRow = coursesSheet.getLastRow();
-      if (lastRow > 1) {
-        var courseRows = coursesSheet.getRange(2, 1, lastRow - 1, 3).getValues();
-        courseRows.forEach(function(row) {
-          if (row[0]) {
-            result.courses.push({
-              name: String(row[0]),
-              price: Number(row[1]),
-              lastUpdated: row[2] ? Number(row[2]) : Date.now()
-            });
-          }
-        });
-      }
-    }
-
-    // 6. Read Inventory from Inventory tab
-    var inventorySheet = ss.getSheetByName("Inventory");
-    if (inventorySheet) {
-      var lastRow = inventorySheet.getLastRow();
-      if (lastRow > 1) {
-        var inventoryRows = inventorySheet.getRange(2, 1, lastRow - 1, 9).getValues();
-        inventoryRows.forEach(function(row) {
-          if (row[0]) {
-            result.inventory.push({
-              id: String(row[0]),
-              name: String(row[1]),
-              category: String(row[2]),
-              quantity: Number(row[3]),
-              price: Number(row[4]),
-              purchaseDate: row[5] instanceof Date ? Utilities.formatDate(row[5], Session.getScriptTimeZone(), "yyyy-MM-dd") : String(row[5] || ""),
-              totalAmount: Number(row[6]),
-              remarks: String(row[7] || ""),
-              lastUpdated: row[8] ? Number(row[8]) : Date.now()
-            });
-          }
-        });
-      }
-    }
-  } catch(err) {
-    result.success = false;
-    result.error = err.toString();
-  }
-  
-  return ContentService.createTextOutput(JSON.stringify(result))
-                       .setMimeType(ContentService.MimeType.JSON);
-}
-
-function doPost(e) {
-  var lock = LockService.getScriptLock();
-  try {
-    // Wait for lock for up to 30 seconds
-    lock.waitLock(30000);
-  } catch(lockErr) {
-    var result = { success: false, error: "Could not acquire script lock: " + lockErr.toString() };
-    return ContentService.createTextOutput(JSON.stringify(result))
-                         .setMimeType(ContentService.MimeType.JSON);
-  }
-
-  try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var data = JSON.parse(e.postData.contents);
-    var syncStaff = !data.options || data.options.syncStaff;
-    var syncAttendance = !data.options || data.options.syncAttendance;
-    
-    // 1. Write Faculty details directly into Sheet1
-    if (syncStaff) {
-      var staffSheet = ss.getSheetByName("Sheet1") || ss.getSheets()[0];
-      var lastRow = staffSheet.getLastRow();
-      var lastCol = Math.max(1, staffSheet.getLastColumn());
-      if (lastRow > 1) {
-        staffSheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
-      }
-      
-      data.staff.forEach(function(s) {
-        staffSheet.appendRow([
-          s.id,
-          s.name,
-          s.joiningDate,
-          s.department,
-          s.designation,
-          s.baseSalary,
-          s.status,
-          s.email || "",
-          s.phone || "",
-          s.gender || "Male",
-          s.salaryType || "Standard",
-          s.bankName || "",
-          s.bankAccount || "",
-          s.bankIfsc || "",
-          s.lastUpdated || Date.now()
-        ]);
-      });
-      staffSheet.getRange("A1:O1").setFontWeight("bold");
-      staffSheet.autoResizeColumns(1, 15);
-
-      // 1b. Write Payroll details directly into Payroll tab
-      if (data.payroll) {
-        var payrollSheet = ss.getSheetByName("Payroll");
-        if (!payrollSheet) {
-          payrollSheet = ss.insertSheet("Payroll");
-          payrollSheet.appendRow([
-            "Month", "Staff ID", "Base Salary", "Allowances", "Deductions", 
-            "Absent Deductions", "Net Salary", "Status", "Remarks", "Last Updated"
-          ]);
-          payrollSheet.getRange("A1:J1").setFontWeight("bold");
-        }
-        var lastRowP = payrollSheet.getLastRow();
-        if (lastRowP > 1) {
-          payrollSheet.getRange(2, 1, lastRowP - 1, 10).clearContent();
-        }
-        Object.keys(data.payroll).forEach(function(monthKey) {
-          var monthRecords = data.payroll[monthKey];
-          Object.keys(monthRecords).forEach(function(staffId) {
-            var rec = monthRecords[staffId];
-            payrollSheet.appendRow([
-              monthKey,
-              staffId,
-              rec.baseSalary,
-              rec.allowances,
-              rec.deductions,
-              rec.absentDeductions,
-              rec.netSalary,
-              rec.status,
-              rec.remarks || "",
-              rec.lastUpdated || Date.now()
-            ]);
-          });
-        });
-        payrollSheet.autoResizeColumns(1, 10);
-      }
-    }
-
-    // 1c. Write Enrolled Students directly into student details tab
-    if (data.students) {
-      var studentsSheet = ss.getSheetByName("student details");
-      if (!studentsSheet) {
-        studentsSheet = ss.insertSheet("student details");
-        studentsSheet.appendRow([
-          "enrollment id", "name", "mobile no.", "courses", "course fees", 
-          "amount received", "due date", "due amount", "fees type", "remarks", "lastUpdated"
-        ]);
-        studentsSheet.getRange("A1:K1").setFontWeight("bold");
-      }
-      var lastRowS = studentsSheet.getLastRow();
-      if (lastRowS > 1) {
-        studentsSheet.getRange(2, 1, lastRowS - 1, 11).clearContent();
-      }
-      data.students.forEach(function(s) {
-        studentsSheet.appendRow([
-          s.id,
-          s.name,
-          s.mobile || "",
-          s.course,
-          s.courseFee,
-          s.amountReceived,
-          s.dueDate || "",
-          s.dueAmount || 0,
-          s.feeType ? s.feeType.join(", ") : "",
-          s.remarks || "",
-          s.lastUpdated || Date.now()
-        ]);
-      });
-      studentsSheet.autoResizeColumns(1, 11);
-    }
-
-    // 1d. Write Courses directly into Courses tab
-    if (data.courses) {
-      var coursesSheet = ss.getSheetByName("Courses");
-      if (!coursesSheet) {
-        coursesSheet = ss.insertSheet("Courses");
-        coursesSheet.appendRow([
-          "Course Name", "Price", "Last Updated"
-        ]);
-        coursesSheet.getRange("A1:C1").setFontWeight("bold");
-      }
-      var lastRowC = coursesSheet.getLastRow();
-      if (lastRowC > 1) {
-        coursesSheet.getRange(2, 1, lastRowC - 1, 3).clearContent();
-      }
-      data.courses.forEach(function(c) {
-        coursesSheet.appendRow([
-          c.name,
-          c.price,
-          c.lastUpdated || Date.now()
-        ]);
-      });
-      coursesSheet.autoResizeColumns(1, 3);
-    }
-
-    // 1e. Write Inventory directly into Inventory tab
-    if (data.inventory) {
-      var inventorySheet = ss.getSheetByName("Inventory");
-      if (!inventorySheet) {
-        inventorySheet = ss.insertSheet("Inventory");
-        inventorySheet.appendRow([
-          "Item ID", "Name", "Category", "Quantity", "Price per Item", "Purchase Date", "Total Amount", "Remarks", "Last Updated"
-        ]);
-        inventorySheet.getRange("A1:I1").setFontWeight("bold");
-      }
-      var lastRowI = inventorySheet.getLastRow();
-      if (lastRowI > 1) {
-        inventorySheet.getRange(2, 1, lastRowI - 1, 9).clearContent();
-      }
-      data.inventory.forEach(function(item) {
-        inventorySheet.appendRow([
-          item.id,
-          item.name,
-          item.category,
-          item.quantity,
-          item.price,
-          item.purchaseDate || "",
-          item.totalAmount || 0,
-          item.remarks || "",
-          item.lastUpdated || Date.now()
-        ]);
-      });
-      inventorySheet.autoResizeColumns(1, 9);
-    }
-    
-    // 2. Save Daily Attendance records to the Attendance tab
-    if (syncAttendance) {
-      var attendSheet = ss.getSheetByName("Attendance");
-      if (!attendSheet) {
-        attendSheet = ss.insertSheet("Attendance");
-        attendSheet.appendRow([
-          "Staff ID", "Name", "Date", "Check-In", "Check-Out", "Status", "Remarks"
-        ]);
-        attendSheet.getRange("A1:G1").setFontWeight("bold");
-      }
-      var lastRow = attendSheet.getLastRow();
-      var lastCol = Math.max(1, attendSheet.getLastColumn());
-      if (lastRow > 1) {
-        attendSheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
-      }
-      
-      var staffMap = {};
-      data.staff.forEach(function(s) { staffMap[s.id] = s; });
-      
-      Object.keys(data.attendance).sort().forEach(function(dateStr) {
-        var records = data.attendance[dateStr];
-        Object.keys(records).forEach(function(staffId) {
-          var rec = records[staffId];
-          var s = staffMap[staffId] || { name: "" };
-          attendSheet.appendRow([
-            staffId,
-            s.name,
-            dateStr,
-            rec.checkIn || "",
-            rec.checkOut || "",
-            rec.status,
-            rec.remarks || ""
-          ]);
-        });
-      });
-      attendSheet.getRange("A1:G1").setFontWeight("bold");
-      attendSheet.autoResizeColumns(1, 7);
-    }
-
-    var result = { success: true, message: "Sync operation completed successfully!" };
-    return ContentService.createTextOutput(JSON.stringify(result))
-                         .setMimeType(ContentService.MimeType.JSON);
-                         
-  } catch(err) {
-    var result = { success: false, error: err.toString() };
-    return ContentService.createTextOutput(JSON.stringify(result))
-                         .setMimeType(ContentService.MimeType.JSON);
-  } finally {
-    lock.releaseLock();
-  }
-}`;
 
 })();

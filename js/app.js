@@ -14,6 +14,17 @@ document.addEventListener("DOMContentLoaded", function() {
     // 1. Session Auth Logic & Initialization
     // ==========================================================================
     function checkAuth() {
+        const hasFirebaseConfig = localStorage.getItem("aurastaff_firebase_config") !== null;
+        if (!hasFirebaseConfig) {
+            $("#firebase-setup-container").classList.remove("hide");
+            $("#login-container").classList.add("hide");
+            $("#app-container").classList.add("hide");
+            initFirebaseSetupForm();
+            return;
+        }
+
+        $("#firebase-setup-container").classList.add("hide");
+
         if (AuraStore.isLoggedIn()) {
             $("#login-container").classList.add("hide");
             $("#app-container").classList.remove("hide");
@@ -150,6 +161,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if (currentView === view || (currentView === "dashboard" && view === "dashboard") || view === "all") {
             renderViewData(currentView);
         }
+        updateSyncStatusIndicator();
     });
 
     // ==========================================================================
@@ -299,7 +311,6 @@ document.addEventListener("DOMContentLoaded", function() {
             
             refreshDirectory();
             AuraDOM.renderDashboard();
-            triggerAutoSync();
         } catch (error) {
             AuraDOM.showToast(error.message, "error");
         }
@@ -481,7 +492,6 @@ document.addEventListener("DOMContentLoaded", function() {
             AuraDOM.showToast(`Daily log successfully updated for ${currentAttendanceDate}`, "success");
             AuraDOM.renderAttendanceTable(currentAttendanceDate);
             AuraDOM.renderDashboard();
-            triggerAutoSync();
         }
     });
 
@@ -546,7 +556,6 @@ document.addEventListener("DOMContentLoaded", function() {
             AuraStore.approveAllPayroll(currentPayrollYear, currentPayrollMonth, selectedIds);
             refreshPayroll();
             AuraDOM.showToast("Selected payroll registers finalized as Paid.", "success");
-            triggerAutoSync();
         }
     });
 
@@ -624,7 +633,6 @@ document.addEventListener("DOMContentLoaded", function() {
             $("#modal-payroll-adjust").classList.add("hide");
             refreshPayroll();
             AuraDOM.showToast("Salary modifications applied", "success");
-            triggerAutoSync();
         } catch (err) {
             AuraDOM.showToast(err.message, "error");
         }
@@ -750,7 +758,6 @@ document.addEventListener("DOMContentLoaded", function() {
             AuraDOM.showToast(`Course ${name} saved successfully!`, "success");
             courseForm.reset();
             refreshStudents();
-            triggerAutoSync();
         });
     }
 
@@ -765,7 +772,6 @@ document.addEventListener("DOMContentLoaded", function() {
                     AuraStore.deleteCourse(name);
                     AuraDOM.showToast(`Course "${name}" deleted.`, "info");
                     refreshStudents();
-                    triggerAutoSync();
                 }
             }
         });
@@ -868,8 +874,6 @@ document.addEventListener("DOMContentLoaded", function() {
                 if (savedStudent) {
                     AuraDOM.printFeeReceipt(savedStudent);
                 }
-
-                triggerAutoSync();
             } catch (err) {
                 AuraDOM.showToast(err.message, "error");
             }
@@ -967,7 +971,6 @@ document.addEventListener("DOMContentLoaded", function() {
                     AuraStore.deleteStudent(id);
                     AuraDOM.showToast(`Deleted student enrollment ${id}`, "info");
                     refreshStudents();
-                    triggerAutoSync();
                 }
             }
         });
@@ -1031,7 +1034,6 @@ document.addEventListener("DOMContentLoaded", function() {
                 }
                 clearInventoryForm();
                 refreshInventory();
-                triggerAutoSync();
             } catch (err) {
                 AuraDOM.showToast(err.message, "error");
             }
@@ -1104,7 +1106,6 @@ document.addEventListener("DOMContentLoaded", function() {
                     AuraStore.deleteInventoryItem(id);
                     AuraDOM.showToast(`Deleted inventory item ${id}`, "info");
                     refreshInventory();
-                    triggerAutoSync();
                 }
             }
         });
@@ -1141,14 +1142,6 @@ document.addEventListener("DOMContentLoaded", function() {
         $("#brand-email").value = branding.email || "";
         $("#brand-phone").value = branding.phone || "";
         $("#brand-address").value = branding.address || "";
-
-        // Set Google Sheets configuration parameters
-        $("#settings-sheets-url-staff").value = AuraStore.getSheetsUrlStaff();
-        $("#settings-sheets-url-attendance").value = AuraStore.getSheetsUrlAttendance();
-        $("#settings-auto-sync").checked = AuraStore.getAutoSync();
-        $("#settings-sync-staff").checked = AuraStore.getSyncStaff();
-        $("#settings-sync-attendance").checked = AuraStore.getSyncAttendance();
-        $("#google-script-template").value = AuraStore.GOOGLE_SCRIPT_TEMPLATE;
 
         // Firebase values populate
         const configStr = localStorage.getItem("aurastaff_firebase_config") || "";
@@ -1224,65 +1217,14 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Reset System data click
     $("#btn-wipe-data").addEventListener("click", () => {
-        if (confirm("WARNING: This will permanently wipe all staff files, schedules, payroll ledger, and student records locally. If sync is configured, it will also clear all data in your Google Sheets. Proceed?")) {
+        if (confirm("WARNING: This will permanently wipe all staff, payroll ledger, attendance history, and student records from both local cache and Firebase Cloud. Proceed?")) {
             AuraDOM.showToast("Wiping databases...", "warning");
             AuraStore.wipeAllData();
-            
-            const urlStaff = AuraStore.getSheetsUrlStaff();
-            const urlAttendance = AuraStore.getSheetsUrlAttendance();
-            const syncStaff = AuraStore.getSyncStaff();
-            const syncAttendance = AuraStore.getSyncAttendance();
-            
-            let pendingWipes = 0;
-            
-            function wipeDone() {
-                pendingWipes--;
-                if (pendingWipes <= 0) {
-                    AuraDOM.showToast("Local and Google Sheets databases wiped successfully!", "success");
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1200);
-                }
-            }
-            
-            if (syncStaff && urlStaff) {
-                pendingWipes++;
-                const payload = {
-                    branding: AuraStore.getBranding(),
-                    staff: [],
-                    payroll: {},
-                    students: [],
-                    courses: [],
-                    options: {
-                        syncStaff: true,
-                        syncAttendance: false
-                    }
-                };
-                AuraStore.postPayload(urlStaff, payload, wipeDone);
-            }
-            
-            if (syncAttendance && urlAttendance) {
-                pendingWipes++;
-                const payload = {
-                    branding: AuraStore.getBranding(),
-                    staff: [],
-                    attendance: {},
-                    students: [],
-                    courses: [],
-                    options: {
-                        syncStaff: false,
-                        syncAttendance: true
-                    }
-                };
-                AuraStore.postPayload(urlAttendance, payload, wipeDone);
-            }
-            
-            if (pendingWipes === 0) {
-                AuraDOM.showToast("Local databases reset successfully.", "success");
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1000);
-            }
+            localStorage.removeItem("aurastaff_firebase_migrated");
+            AuraDOM.showToast("Local and Cloud databases wiped successfully!", "success");
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
         }
     });
 
@@ -1316,80 +1258,15 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     });
 
-    // Google Sheets Sync Web API Clicks
-    $("#btn-sync-sheets").addEventListener("click", () => {
-        const urlStaff = $("#settings-sheets-url-staff").value.trim();
-        const urlAttendance = $("#settings-sheets-url-attendance").value.trim();
-
-        const syncStaff = AuraStore.getSyncStaff();
-        const syncAttendance = AuraStore.getSyncAttendance();
-
-        if (syncStaff && urlStaff === "") {
-            AuraDOM.showToast("Please enter your Faculty Directory Sync URL first.", "error");
-            return;
-        }
-        if (syncStaff && urlStaff.includes("docs.google.com/spreadsheets")) {
-            AuraDOM.showToast("Faculty Sync URL is a spreadsheet link! Please paste the Apps Script Web App URL (ending in /exec) instead.", "error");
-            return;
-        }
-        if (syncAttendance && urlAttendance === "") {
-            AuraDOM.showToast("Please enter your Attendance Log Sync URL first.", "error");
-            return;
-        }
-        if (syncAttendance && urlAttendance.includes("docs.google.com/spreadsheets")) {
-            AuraDOM.showToast("Attendance Sync URL is a spreadsheet link! Please paste the Apps Script Web App URL (ending in /exec) instead.", "error");
-            return;
-        }
-
-        AuraStore.setSheetsUrlStaff(urlStaff);
-        AuraStore.setSheetsUrlAttendance(urlAttendance);
-        
-        // Show spinning/loading status
-        const syncBtn = $("#btn-sync-sheets");
-        const originalText = syncBtn.innerHTML;
-        syncBtn.disabled = true;
-        syncBtn.innerHTML = `<span class="material-symbols-outlined animated-spin" style="animation: spin 1.5s linear infinite;">sync</span> <span>Syncing...</span>`;
-        
-        AuraStore.syncAll(function(err, success) {
-            syncBtn.disabled = false;
-            syncBtn.innerHTML = originalText;
-            
-            if (success) {
-                AuraDOM.showToast("Successfully synced databases with Google Sheets!", "success");
-                renderViewData(currentView);
-            } else {
-                AuraDOM.showToast(`Sync failed: ${err}`, "error");
-            }
-        });
-    });
-
-    // Auto-sync setting change triggers
-    $("#settings-auto-sync").addEventListener("change", function() {
-        AuraStore.setAutoSync(this.checked);
-        triggerAutoSync();
-    });
-
-    $("#settings-sync-staff").addEventListener("change", function() {
-        AuraStore.setSyncStaff(this.checked);
-    });
-
-    $("#settings-sync-attendance").addEventListener("change", function() {
-        AuraStore.setSyncAttendance(this.checked);
-    });
-
-    $("#settings-sheets-url-staff").addEventListener("input", function() {
-        AuraStore.setSheetsUrlStaff(this.value.trim());
-    });
-
-    $("#settings-sheets-url-attendance").addEventListener("input", function() {
-        AuraStore.setSheetsUrlAttendance(this.value.trim());
-    });
-
     // Firebase Cloud Configuration Actions
-    $("#btn-connect-firebase").addEventListener("click", () => {
-        const configInput = $("#settings-firebase-config").value.trim();
+    function parseAndSaveFirebaseConfig(configInput, errorElement, successCallback) {
         if (!configInput) {
-            AuraDOM.showToast("Please paste your Firebase SDK config object first.", "error");
+            if (errorElement) {
+                errorElement.querySelector(".setup-error-msg").textContent = "Configuration cannot be empty.";
+                errorElement.classList.remove("hide");
+            } else {
+                AuraDOM.showToast("Please paste your Firebase SDK config object first.", "error");
+            }
             return;
         }
 
@@ -1398,7 +1275,6 @@ document.addEventListener("DOMContentLoaded", function() {
             const apiKeyIndex = configInput.indexOf("apiKey");
             
             if (apiKeyIndex !== -1) {
-                // Bracket-matching parser to extract exactly the configuration block
                 let openBraceIndex = -1;
                 for (let i = apiKeyIndex; i >= 0; i--) {
                     if (configInput[i] === '{') {
@@ -1409,7 +1285,6 @@ document.addEventListener("DOMContentLoaded", function() {
                 
                 let parseString = configInput;
                 if (openBraceIndex === -1) {
-                    // Wrap the configuration in curly braces if they are missing
                     parseString = "{\n" + configInput + "\n}";
                     openBraceIndex = 0;
                 }
@@ -1435,7 +1310,6 @@ document.addEventListener("DOMContentLoaded", function() {
                 const objStr = parseString.substring(openBraceIndex, closeBraceIndex + 1);
                 configObj = Function("return " + objStr)();
             } else {
-                // Fallback to strict JSON parsing
                 configObj = JSON.parse(configInput);
             }
 
@@ -1444,21 +1318,55 @@ document.addEventListener("DOMContentLoaded", function() {
             }
 
             localStorage.setItem("aurastaff_firebase_config", JSON.stringify(configObj, null, 2));
-            AuraDOM.showToast("Configuration saved. Connecting to Cloud database...", "success");
+            if (errorElement) errorElement.classList.add("hide");
+            
+            if (successCallback) {
+                successCallback();
+            }
+        } catch (e) {
+            if (errorElement) {
+                errorElement.querySelector(".setup-error-msg").textContent = e.message;
+                errorElement.classList.remove("hide");
+            } else {
+                AuraDOM.showToast("Configuration parsing failed: " + e.message, "error");
+            }
+            console.error(e);
+        }
+    }
 
+    function initFirebaseSetupForm() {
+        const setupForm = $("#firebase-setup-form");
+        if (setupForm) {
+            setupForm.addEventListener("submit", function(e) {
+                e.preventDefault();
+                const configInput = $("#setup-firebase-config").value.trim();
+                const errorElement = $("#setup-error");
+                
+                parseAndSaveFirebaseConfig(configInput, errorElement, () => {
+                    AuraDOM.showToast("Firebase configured successfully! Initializing...", "success");
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                });
+            });
+        }
+    }
+
+    $("#btn-connect-firebase").addEventListener("click", () => {
+        const configInput = $("#settings-firebase-config").value.trim();
+        parseAndSaveFirebaseConfig(configInput, null, () => {
+            AuraDOM.showToast("Configuration saved. Connecting to Cloud database...", "success");
             setTimeout(() => {
                 window.location.reload();
             }, 1000);
-        } catch (e) {
-            AuraDOM.showToast("Configuration parsing failed: " + e.message, "error");
-            console.error(e);
-        }
+        });
     });
 
     $("#btn-disconnect-firebase").addEventListener("click", () => {
-        if (confirm("Disconnecting from Firebase will reset the app back to Local Offline Storage mode. Proceed?")) {
+        if (confirm("Disconnecting from Firebase will reset the app back to configuration gateway mode. Proceed?")) {
             localStorage.removeItem("aurastaff_firebase_config");
-            AuraDOM.showToast("Disconnected from Firebase. Reverting database state...", "warning");
+            localStorage.removeItem("aurastaff_firebase_migrated");
+            AuraDOM.showToast("Disconnected from Firebase.", "warning");
             setTimeout(() => {
                 window.location.reload();
             }, 1000);
@@ -1490,58 +1398,28 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     });
 
-    function triggerAutoSync() {
-        const enabled = AuraStore.getAutoSync();
-        const urlStaff = AuraStore.getSheetsUrlStaff();
-        const urlAttendance = AuraStore.getSheetsUrlAttendance();
-        
-        const syncStaff = AuraStore.getSyncStaff();
-        const syncAttendance = AuraStore.getSyncAttendance();
-        
-        const hasUrl = (syncStaff && urlStaff) || (syncAttendance && urlAttendance);
+    function updateSyncStatusIndicator() {
         const indicator = $("#sync-status-indicator");
-        
-        if (!enabled || !hasUrl) {
-            indicator.classList.add("hide");
-            return;
-        }
-
+        if (!indicator) return;
         const icon = indicator.querySelector(".status-icon");
         const text = indicator.querySelector(".status-text");
 
-        indicator.className = "sync-status-badge syncing";
-        icon.textContent = "sync";
-        icon.style.animation = "spin 1.2s linear infinite";
-        text.textContent = "Syncing...";
-        indicator.classList.remove("hide");
+        indicator.classList.remove("hide"); // Always show database status
 
-        AuraStore.syncAll(function(err, success) {
-            icon.style.animation = "";
-            if (success) {
-                indicator.className = "sync-status-badge";
-                icon.textContent = "cloud_done";
-                text.textContent = "Cloud Synced";
-                renderViewData(currentView);
-            } else {
-                indicator.className = "sync-status-badge error";
-                icon.textContent = "cloud_off";
-                text.textContent = "Sync Failed";
-            }
-        });
+        if (!AuraStore.useFirebase) {
+            indicator.className = "sync-status-badge error";
+            if (icon) icon.textContent = "cloud_off";
+            if (text) text.textContent = "Disconnected";
+        } else if (!navigator.onLine) {
+            indicator.className = "sync-status-badge syncing";
+            if (icon) icon.textContent = "cloud_queue";
+            if (text) text.textContent = "Offline Cache";
+        } else {
+            indicator.className = "sync-status-badge";
+            if (icon) icon.textContent = "cloud_done";
+            if (text) text.textContent = "Connected (Real-time)";
+        }
     }
-
-    // Offline CSV Exporters
-    $("#btn-export-staff-csv").addEventListener("click", () => {
-        const csv = AuraStore.exportStaffCSV();
-        downloadCSVFile(csv, "aurastaff_directory.csv");
-        AuraDOM.showToast("Staff directory CSV downloaded", "success");
-    });
-
-    $("#btn-export-attend-csv").addEventListener("click", () => {
-        const csv = AuraStore.exportAttendanceCSV();
-        downloadCSVFile(csv, "aurastaff_attendance.csv");
-        AuraDOM.showToast("Attendance records CSV downloaded", "success");
-    });
 
     function downloadCSVFile(csvContent, filename) {
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1698,7 +1576,9 @@ document.addEventListener("DOMContentLoaded", function() {
             });
         }
 
-        triggerAutoSync();
+        updateSyncStatusIndicator();
+        window.addEventListener("online", updateSyncStatusIndicator);
+        window.addEventListener("offline", updateSyncStatusIndicator);
 
         // Bind escape key to close modals
         document.addEventListener("keydown", function(e) {
