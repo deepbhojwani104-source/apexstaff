@@ -37,6 +37,7 @@
         
         let stuPresent = 0;
         let stuAbsent = 0;
+        let feePendingCount = 0;
         
         const todayStudentAttendance = AuraStore.getStudentAttendanceByDate(todayStr);
         
@@ -47,6 +48,11 @@
                 else if (status === "Absent") stuAbsent++;
             } else {
                 stuAbsent++;
+            }
+            
+            const dueAmt = Math.max(0, (Number(s.courseFee) || 0) - (Number(s.amountReceived) || 0));
+            if (dueAmt > 0) {
+                feePendingCount++;
             }
         });
         
@@ -59,6 +65,8 @@
         const statSubtextStudentPresent = $("#stat-subtext-student-present");
         const statStudentAbsentToday = $("#stat-student-absent-today");
         const statSubtextStudentAbsent = $("#stat-subtext-student-absent");
+        const statStudentPendingFee = $("#stat-student-pending-fee");
+        const statSubtextStudentPendingFee = $("#stat-subtext-student-pending-fee");
         
         if (statTotalStudents) statTotalStudents.textContent = totalStudentsCount;
         if (statSubtextStudents) statSubtextStudents.textContent = `${totalStudentsCount} Registered`;
@@ -66,6 +74,8 @@
         if (statSubtextStudentPresent) statSubtextStudentPresent.textContent = `${stuPresentRate}% attendance rate`;
         if (statStudentAbsentToday) statStudentAbsentToday.textContent = stuAbsent;
         if (statSubtextStudentAbsent) statSubtextStudentAbsent.textContent = `${stuAbsent} absent today`;
+        if (statStudentPendingFee) statStudentPendingFee.textContent = feePendingCount;
+        if (statSubtextStudentPendingFee) statSubtextStudentPendingFee.textContent = `${feePendingCount} students with dues`;
 
         // Get current date string for attendance
         const todayAttendance = AuraStore.getAttendanceByDate(todayStr);

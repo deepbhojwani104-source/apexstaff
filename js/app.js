@@ -45,7 +45,9 @@ document.addEventListener("DOMContentLoaded", function() {
         if (success) {
             $("#login-error").classList.add("hide");
             checkAuth();
-            AuraDOM.showToast("Logged in successfully as Administrator", "success");
+            const role = AuraStore.getUserRole();
+            const roleName = role === "admin" ? "Administrator" : role === "faculty" ? "Faculty" : "Staff Clerk";
+            AuraDOM.showToast(`Logged in successfully as ${roleName}`, "success");
         } else {
             const errorBlock = $("#login-error");
             errorBlock.classList.remove("hide");

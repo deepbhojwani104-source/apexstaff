@@ -179,76 +179,102 @@
                 
                 <!-- View 1: Dashboard -->
                 <section id="view-dashboard" class="page-view">
-                    <!-- Stats Grid -->
-                    <div class="stats-grid">
-                        <div class="stat-card stat-primary">
-                            <div class="stat-icon">
-                                <span class="material-symbols-outlined">group</span>
+                    <!-- Staff Metrics Block -->
+                    <div style="margin-bottom: 24px;">
+                        <h3 style="margin-bottom: 12px; font-size: 15px; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+                            <span class="material-symbols-outlined" style="font-size:18px;">badge</span>
+                            <span>Faculty & Staff Metrics</span>
+                        </h3>
+                        <div class="stats-grid">
+                            <div class="stat-card stat-primary">
+                                <div class="stat-icon">
+                                    <span class="material-symbols-outlined">group</span>
+                                </div>
+                                <div class="stat-details">
+                                    <span class="stat-label">Total Staff</span>
+                                    <h3 id="stat-total-staff">0</h3>
+                                    <span class="stat-subtext" id="stat-subtext-staff">0 Active members</span>
+                                </div>
                             </div>
-                            <div class="stat-details">
-                                <span class="stat-label">Total Staff</span>
-                                <h3 id="stat-total-staff">0</h3>
-                                <span class="stat-subtext" id="stat-subtext-staff">0 Active members</span>
+                            <div class="stat-card stat-success">
+                                <div class="stat-icon">
+                                    <span class="material-symbols-outlined">person_check</span>
+                                </div>
+                                <div class="stat-details">
+                                    <span class="stat-label">Present Today</span>
+                                    <h3 id="stat-present-today">0</h3>
+                                    <span class="stat-subtext" id="stat-subtext-present">0% attendance rate</span>
+                                </div>
                             </div>
-                        </div>
-                        <div class="stat-card stat-success">
-                            <div class="stat-icon">
-                                <span class="material-symbols-outlined">person_check</span>
+                            <div class="stat-card stat-warning">
+                                <div class="stat-icon">
+                                    <span class="material-symbols-outlined">pending_actions</span>
+                                </div>
+                                <div class="stat-details">
+                                    <span class="stat-label">Leaves / Absents Today</span>
+                                    <h3 id="stat-absent-today">0</h3>
+                                    <span class="stat-subtext" id="stat-subtext-absent">0 members off</span>
+                                </div>
                             </div>
-                            <div class="stat-details">
-                                <span class="stat-label">Present Today</span>
-                                <h3 id="stat-present-today">0</h3>
-                                <span class="stat-subtext" id="stat-subtext-present">0% attendance rate</span>
-                            </div>
-                        </div>
-                        <div class="stat-card stat-warning">
-                            <div class="stat-icon">
-                                <span class="material-symbols-outlined">pending_actions</span>
-                            </div>
-                            <div class="stat-details">
-                                <span class="stat-label">Leaves / Absents Today</span>
-                                <h3 id="stat-absent-today">0</h3>
-                                <span class="stat-subtext" id="stat-subtext-absent">0 members off</span>
-                            </div>
-                        </div>
-                        <div class="stat-card stat-info" id="card-payroll-stat">
-                            <div class="stat-icon">
-                                <span class="material-symbols-outlined">payments</span>
-                            </div>
-                            <div class="stat-details">
-                                <span class="stat-label">Monthly Payroll Est.</span>
-                                <h3 id="stat-payroll-payout">₹0.00</h3>
-                                <span class="stat-subtext" id="stat-subtext-payroll">For current month</span>
-                            </div>
-                        </div>
-                        <div class="stat-card stat-info">
-                            <div class="stat-icon">
-                                <span class="material-symbols-outlined">school</span>
-                            </div>
-                            <div class="stat-details">
-                                <span class="stat-label">Total Students</span>
-                                <h3 id="stat-total-students">0</h3>
-                                <span class="stat-subtext" id="stat-subtext-students">0 Enrolled</span>
+                            <div class="stat-card stat-info" id="card-payroll-stat">
+                                <div class="stat-icon">
+                                    <span class="material-symbols-outlined">payments</span>
+                                </div>
+                                <div class="stat-details">
+                                    <span class="stat-label">Monthly Payroll Est.</span>
+                                    <h3 id="stat-payroll-payout">₹0.00</h3>
+                                    <span class="stat-subtext" id="stat-subtext-payroll">For current month</span>
+                                </div>
                             </div>
                         </div>
-                        <div class="stat-card stat-success">
-                            <div class="stat-icon">
-                                <span class="material-symbols-outlined">rule</span>
+                    </div>
+
+                    <!-- Student Metrics Block -->
+                    <div style="margin-bottom: 24px;">
+                        <h3 style="margin-bottom: 12px; font-size: 15px; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+                            <span class="material-symbols-outlined" style="font-size:18px;">school</span>
+                            <span>Students Overview Metrics</span>
+                        </h3>
+                        <div class="stats-grid">
+                            <div class="stat-card stat-info">
+                                <div class="stat-icon">
+                                    <span class="material-symbols-outlined">school</span>
+                                </div>
+                                <div class="stat-details">
+                                    <span class="stat-label">Total Students</span>
+                                    <h3 id="stat-total-students">0</h3>
+                                    <span class="stat-subtext" id="stat-subtext-students">0 Enrolled</span>
+                                </div>
                             </div>
-                            <div class="stat-details">
-                                <span class="stat-label">Students Present</span>
-                                <h3 id="stat-student-present-today">0</h3>
-                                <span class="stat-subtext" id="stat-subtext-student-present">0% attendance rate</span>
+                            <div class="stat-card stat-success">
+                                <div class="stat-icon">
+                                    <span class="material-symbols-outlined">rule</span>
+                                </div>
+                                <div class="stat-details">
+                                    <span class="stat-label">Students Present</span>
+                                    <h3 id="stat-student-present-today">0</h3>
+                                    <span class="stat-subtext" id="stat-subtext-student-present">0% attendance rate</span>
+                                </div>
                             </div>
-                        </div>
-                        <div class="stat-card stat-danger">
-                            <div class="stat-icon">
-                                <span class="material-symbols-outlined">cancel</span>
+                            <div class="stat-card stat-danger">
+                                <div class="stat-icon">
+                                    <span class="material-symbols-outlined">cancel</span>
+                                </div>
+                                <div class="stat-details">
+                                    <span class="stat-label">Students Absent</span>
+                                    <h3 id="stat-student-absent-today">0</h3>
+                                    <span class="stat-subtext" id="stat-subtext-student-absent">0 absent today</span>
+                                </div>
                             </div>
-                            <div class="stat-details">
-                                <span class="stat-label">Students Absent</span>
-                                <h3 id="stat-student-absent-today">0</h3>
-                                <span class="stat-subtext" id="stat-subtext-student-absent">0 absent today</span>
+                            <div class="stat-card stat-warning">
+                                <div class="stat-icon">
+                                    <span class="material-symbols-outlined">money_off</span>
+                                </div>
+                                <div class="stat-details">
+                                    <span class="stat-label">Fee Pending Students</span>
+                                    <h3 id="stat-student-pending-fee">0</h3>
+                                    <span class="stat-subtext" id="stat-subtext-student-pending-fee">0 pending payments</span>
+                                </div>
                             </div>
                         </div>
                     </div>
