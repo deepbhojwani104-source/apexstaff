@@ -29,8 +29,45 @@
         $("#stat-total-staff").textContent = totalStaffCount;
         $("#stat-subtext-staff").textContent = `${activeStaffCount} Active members`;
 
-        // Get current date string for attendance
         const todayStr = new Date().toISOString().split('T')[0];
+
+        // Calculate student details
+        const students = AuraStore.getStudents();
+        const totalStudentsCount = students.length;
+        
+        let stuPresent = 0;
+        let stuAbsent = 0;
+        
+        const todayStudentAttendance = AuraStore.getStudentAttendanceByDate(todayStr);
+        
+        students.forEach(s => {
+            if (todayStudentAttendance[s.id]) {
+                const status = todayStudentAttendance[s.id].status;
+                if (status === "Present") stuPresent++;
+                else if (status === "Absent") stuAbsent++;
+            } else {
+                stuAbsent++;
+            }
+        });
+        
+        const stuMarkedCount = stuPresent + stuAbsent;
+        const stuPresentRate = stuMarkedCount > 0 ? Math.round((stuPresent / stuMarkedCount) * 100) : 0;
+        
+        const statTotalStudents = $("#stat-total-students");
+        const statSubtextStudents = $("#stat-subtext-students");
+        const statStudentPresentToday = $("#stat-student-present-today");
+        const statSubtextStudentPresent = $("#stat-subtext-student-present");
+        const statStudentAbsentToday = $("#stat-student-absent-today");
+        const statSubtextStudentAbsent = $("#stat-subtext-student-absent");
+        
+        if (statTotalStudents) statTotalStudents.textContent = totalStudentsCount;
+        if (statSubtextStudents) statSubtextStudents.textContent = `${totalStudentsCount} Registered`;
+        if (statStudentPresentToday) statStudentPresentToday.textContent = stuPresent;
+        if (statSubtextStudentPresent) statSubtextStudentPresent.textContent = `${stuPresentRate}% attendance rate`;
+        if (statStudentAbsentToday) statStudentAbsentToday.textContent = stuAbsent;
+        if (statSubtextStudentAbsent) statSubtextStudentAbsent.textContent = `${stuAbsent} absent today`;
+
+        // Get current date string for attendance
         const todayAttendance = AuraStore.getAttendanceByDate(todayStr);
 
         let present = 0;

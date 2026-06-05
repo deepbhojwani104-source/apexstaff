@@ -82,7 +82,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const viewTitles = {
         dashboard: "Dashboard Overview",
         directory: "Staff Directory",
-        attendance: "Daily Attendance Log",
+        attendance: "Faculty Attendance",
         payroll: "Payroll Hub",
         students: "Student Enrollment Hub",
         "student-attendance": "Student Attendance Register",
@@ -99,7 +99,7 @@ document.addEventListener("DOMContentLoaded", function() {
             if (targetView !== "students" && targetView !== "student-attendance") {
                 targetView = "student-attendance";
             }
-        } else if (targetView === "payroll" && role !== "admin") {
+        } else if ((targetView === "payroll" || targetView === "finance") && role !== "admin") {
             targetView = "dashboard";
         }
 
@@ -1633,7 +1633,7 @@ document.addEventListener("DOMContentLoaded", function() {
             // Restore visibility for admin/staff
             $$(".menu-item").forEach(item => {
                 const view = item.dataset.view;
-                if (view === "payroll" && role !== "admin") {
+                if ((view === "payroll" || view === "finance") && role !== "admin") {
                     item.classList.add("hide");
                 } else {
                     item.classList.remove("hide");
