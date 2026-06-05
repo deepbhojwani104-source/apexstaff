@@ -144,6 +144,14 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     });
 
+    // Custom Event trigger for remote Firebase collection updates
+    document.addEventListener('firebaseDataChanged', function(e) {
+        const view = e.detail.view;
+        if (currentView === view || (currentView === "dashboard" && view === "dashboard") || view === "all") {
+            renderViewData(currentView);
+        }
+    });
+
     // ==========================================================================
     // 3. Theme Toggle Setup
     // ==========================================================================
@@ -1141,6 +1149,35 @@ document.addEventListener("DOMContentLoaded", function() {
         $("#settings-sync-staff").checked = AuraStore.getSyncStaff();
         $("#settings-sync-attendance").checked = AuraStore.getSyncAttendance();
         $("#google-script-template").value = AuraStore.GOOGLE_SCRIPT_TEMPLATE;
+
+        // Firebase values populate
+        const configStr = localStorage.getItem("aurastaff_firebase_config") || "";
+        $("#settings-firebase-config").value = configStr;
+
+        const badge = $("#firebase-status-badge");
+        const icon = $("#firebase-status-icon");
+        const text = $("#firebase-status-text");
+        const btnConnect = $("#btn-connect-firebase");
+        const btnDisconnect = $("#btn-disconnect-firebase");
+        const migrationSec = $("#firebase-migration-section");
+
+        if (AuraStore.useFirebase) {
+            badge.className = "sync-status-badge success";
+            icon.textContent = "cloud_done";
+            text.textContent = "Connected (Real-time)";
+            btnDisconnect.classList.remove("hide");
+            btnConnect.innerHTML = `<span class="material-symbols-outlined" style="font-size: 16px;">check_circle</span> <span>Connected</span>`;
+            btnConnect.disabled = true;
+            migrationSec.classList.remove("hide");
+        } else {
+            badge.className = "sync-status-badge error";
+            icon.textContent = "cloud_off";
+            text.textContent = "Local Mode";
+            btnDisconnect.classList.add("hide");
+            btnConnect.innerHTML = `<span class="material-symbols-outlined" style="font-size: 16px;">cloud_sync</span> <span>Connect Cloud</span>`;
+            btnConnect.disabled = false;
+            migrationSec.classList.add("hide");
+        }
     }
 
     // Shortcut click from Dashboard tile
@@ -1346,6 +1383,111 @@ document.addEventListener("DOMContentLoaded", function() {
 
     $("#settings-sheets-url-attendance").addEventListener("input", function() {
         AuraStore.setSheetsUrlAttendance(this.value.trim());
+    });
+
+    // Firebase Cloud Configuration Actions
+    $("#btn-connect-firebase").addEventListener("click", () => {
+        const configInput = $("#settings-firebase-config").value.trim();
+        if (!configInput) {
+            AuraDOM.showToast("Please paste your Firebase SDK config object first.", "error");
+            return;
+        }
+
+        try {
+            let configObj;
+            const apiKeyIndex = configInput.indexOf("apiKey");
+            
+            if (apiKeyIndex !== -1) {
+                // Bracket-matching parser to extract exactly the configuration block
+                let openBraceIndex = -1;
+                for (let i = apiKeyIndex; i >= 0; i--) {
+                    if (configInput[i] === '{') {
+                        openBraceIndex = i;
+                        break;
+                    }
+                }
+                
+                let parseString = configInput;
+                if (openBraceIndex === -1) {
+                    // Wrap the configuration in curly braces if they are missing
+                    parseString = "{\n" + configInput + "\n}";
+                    openBraceIndex = 0;
+                }
+                
+                let closeBraceIndex = -1;
+                let bracketCount = 0;
+                for (let i = openBraceIndex; i < parseString.length; i++) {
+                    if (parseString[i] === '{') {
+                        bracketCount++;
+                    } else if (parseString[i] === '}') {
+                        bracketCount--;
+                        if (bracketCount === 0) {
+                            closeBraceIndex = i;
+                            break;
+                        }
+                    }
+                }
+                
+                if (closeBraceIndex === -1) {
+                    throw new Error("Could not find matching closing brace '}' for config object.");
+                }
+                
+                const objStr = parseString.substring(openBraceIndex, closeBraceIndex + 1);
+                configObj = Function("return " + objStr)();
+            } else {
+                // Fallback to strict JSON parsing
+                configObj = JSON.parse(configInput);
+            }
+
+            if (!configObj || !configObj.apiKey || !configObj.projectId) {
+                throw new Error("Pasted configuration must contain apiKey and projectId fields.");
+            }
+
+            localStorage.setItem("aurastaff_firebase_config", JSON.stringify(configObj, null, 2));
+            AuraDOM.showToast("Configuration saved. Connecting to Cloud database...", "success");
+
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } catch (e) {
+            AuraDOM.showToast("Configuration parsing failed: " + e.message, "error");
+            console.error(e);
+        }
+    });
+
+    $("#btn-disconnect-firebase").addEventListener("click", () => {
+        if (confirm("Disconnecting from Firebase will reset the app back to Local Offline Storage mode. Proceed?")) {
+            localStorage.removeItem("aurastaff_firebase_config");
+            AuraDOM.showToast("Disconnected from Firebase. Reverting database state...", "warning");
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+    });
+
+    $("#btn-firebase-import-local").addEventListener("click", () => {
+        if (!AuraStore.useFirebase) {
+            AuraDOM.showToast("Firebase is not connected.", "error");
+            return;
+        }
+
+        if (confirm("This will safely copy all local Staff, Student entries, Inventory details, Attendance history, and Payroll sheets to Firestore. Proceed?")) {
+            const btn = $("#btn-firebase-import-local");
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<span class="material-symbols-outlined animated-spin" style="animation: spin 1.5s linear infinite;">sync</span> <span>Uploading...</span>`;
+
+            AuraStore.uploadLocalToFirebase((err, success) => {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+                if (success) {
+                    AuraDOM.showToast("All local databases successfully synchronized to Firebase Cloud!", "success");
+                    renderViewData(currentView);
+                } else {
+                    AuraDOM.showToast("Cloud sync failed: " + err, "error");
+                }
+            });
+        }
     });
 
     function triggerAutoSync() {

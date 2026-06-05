@@ -1037,6 +1037,56 @@
                             </div>
                         </div>
 
+                        <!-- Firebase Cloud Database -->
+                        <div class="glass-card settings-card">
+                            <div class="settings-card-header">
+                                <span class="material-symbols-outlined icon-box-settings">cloud</span>
+                                <div>
+                                    <h3>Firebase Cloud Database</h3>
+                                    <p>Connect your app to Firebase Firestore for real-time cloud data sharing.</p>
+                                </div>
+                            </div>
+                            <div class="settings-card-body">
+                                <div style="margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="font-size: 13px; font-weight: 600;">Connection Status:</span>
+                                    <span id="firebase-status-badge" class="sync-status-badge error" style="display: flex; gap: 4px; padding: 4px 8px; border-radius: 4px; font-size:11.5px; font-weight:600;">
+                                        <span id="firebase-status-icon" class="material-symbols-outlined" style="font-size: 16px;">cloud_off</span>
+                                        <span id="firebase-status-text">Local Mode</span>
+                                    </span>
+                                </div>
+
+                                <div class="form-group" style="margin-bottom: 15px;">
+                                    <label for="settings-firebase-config">Firebase Configuration JSON *</label>
+                                    <textarea id="settings-firebase-config" placeholder="Paste your Firebase SDK config object here (e.g. { apiKey: '...', ... })" style="height: 100px; font-family: monospace; font-size: 11px; resize: vertical; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); width:100%;"></textarea>
+                                    <span style="font-size:10.5px; color:var(--text-muted); display:block; margin-top:4px;">Copy the Web app config object from your Firebase Console.</span>
+                                </div>
+
+                                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-bottom: 20px;">
+                                    <button id="btn-disconnect-firebase" class="btn btn-outline hide" style="height: 33px; padding: 0 12px; display: flex; align-items: center; gap: 6px;">
+                                        <span class="material-symbols-outlined" style="font-size: 16px;">cloud_off</span>
+                                        <span>Disconnect</span>
+                                    </button>
+                                    <button id="btn-connect-firebase" class="btn btn-primary" style="height: 33px; padding: 0 12px; display: flex; align-items: center; gap: 6px;">
+                                        <span class="material-symbols-outlined" style="font-size: 16px;">cloud_sync</span>
+                                        <span>Connect Cloud</span>
+                                    </button>
+                                </div>
+
+                                <div id="firebase-migration-section" class="hide" style="border-top: 1px solid var(--color-border); padding-top: 15px;">
+                                    <div class="settings-action-row" style="margin-top: 0; padding: 0;">
+                                        <div class="action-details">
+                                            <strong>Upload Local Data to Cloud</strong>
+                                            <p>Pushes all local staff, attendance, students, and inventory records to Firestore.</p>
+                                        </div>
+                                        <button id="btn-firebase-import-local" class="btn btn-secondary btn-sm" style="display: flex; align-items: center; gap: 6px;">
+                                            <span class="material-symbols-outlined" style="font-size: 16px;">backup</span>
+                                            <span>Upload Local Data</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- System Configuration -->
                         <div class="glass-card settings-card">
                             <div class="settings-card-header">
@@ -1347,6 +1397,10 @@
     </div>
 
     <!-- Core App Javascript -->
+    <!-- Firebase Compat SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
     <script src="js/data.js"></script>
     <script src="js/dom.js"></script>
     <script src="js/app.js"></script>
