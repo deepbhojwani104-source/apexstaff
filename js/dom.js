@@ -1995,9 +1995,10 @@
             }
         });
             
-        // Sum up staff salaries paid in this month
+        // Sum up staff salaries paid in this month (only if status is "Paid")
         const payrollObj = AuraStore.getState().payroll[monthKey] || {};
         const staffSalaries = Object.values(payrollObj)
+            .filter(p => p.status === "Paid")
             .reduce((sum, p) => sum + (Number(p.netSalary) || 0), 0);
             
         // Retrieve manual monthly expenses & other income list
@@ -2144,7 +2145,9 @@
                     });
                     
                     const mPayroll = AuraStore.getState().payroll[mKey] || {};
-                    const mSalaries = Object.values(mPayroll).reduce((sum, p) => sum + (Number(p.netSalary) || 0), 0);
+                    const mSalaries = Object.values(mPayroll)
+                        .filter(p => p.status === "Paid")
+                        .reduce((sum, p) => sum + (Number(p.netSalary) || 0), 0);
                     
                     const mFinance = AuraStore.getMonthlyFinance(mKey);
                     const mLight = mFinance.lightBill || 0;
@@ -2230,6 +2233,7 @@
             
         const payrollObj = AuraStore.getState().payroll[monthKey] || {};
         const staffSalaries = Object.values(payrollObj)
+            .filter(p => p.status === "Paid")
             .reduce((sum, p) => sum + (Number(p.netSalary) || 0), 0);
             
         const financeData = AuraStore.getMonthlyFinance(monthKey);
