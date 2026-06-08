@@ -2285,3 +2285,36 @@ h1, h2, h3, h4, h5, h6 {
     border-color: rgba(239, 68, 68, 0.15);
     color: var(--color-danger);
 }
+
+/* Super Admin Styles */
+.superadmin-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 1.5fr;
+    gap: 24px;
+    align-items: start;
+}
+@media (max-width: 1024px) {
+    .superadmin-grid {
+        grid-template-columns: 1fr;
+    }
+}
+.sa-inst-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: all var(--transition-fast);
+}
+.sa-inst-card:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--color-border-focus);
+}
+[data-theme="light"] .sa-inst-card {
+    background: rgba(0, 0, 0, 0.01);
+}
+[data-theme="light"] .sa-inst-card:hover {
+    background: rgba(0, 0, 0, 0.02);
+}

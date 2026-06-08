@@ -115,6 +115,23 @@ document.addEventListener("DOMContentLoaded", function() {
                         sessionStorage.setItem("aurastaff_logged_in", "true");
                         sessionStorage.setItem("aurastaff_user_role", role);
                         
+                        if (role === "superadmin") {
+                            AuraStore.currentTenantId = null;
+                            AuraStore.resetTenantUI();
+                            
+                            $("#login-container").classList.add("hide");
+                            $("#app-container").classList.add("hide");
+                            $("#superadmin-container").classList.remove("hide");
+                            
+                            const errorBlock = $("#login-error");
+                            if (errorBlock) errorBlock.classList.add("hide");
+                            
+                            initSuperAdmin();
+                            
+                            if (loaderEl) loaderEl.remove();
+                            return;
+                        }
+                        
                         // Fetch tenant branding config
                         const config = await AuraStore.fetchTenantConfig(tenantId);
                         if (config) {
@@ -183,6 +200,7 @@ document.addEventListener("DOMContentLoaded", function() {
             $("#firebase-setup-container").classList.remove("hide");
             $("#login-container").classList.add("hide");
             $("#app-container").classList.add("hide");
+            $("#superadmin-container").classList.add("hide");
             initFirebaseSetupForm();
             return;
         }
@@ -196,12 +214,22 @@ document.addEventListener("DOMContentLoaded", function() {
         }
 
         if (AuraStore.isLoggedIn()) {
+            const role = AuraStore.getUserRole();
+            if (role === "superadmin") {
+                $("#login-container").classList.add("hide");
+                $("#app-container").classList.add("hide");
+                $("#superadmin-container").classList.remove("hide");
+                initSuperAdmin();
+                return;
+            }
             $("#login-container").classList.add("hide");
             $("#app-container").classList.remove("hide");
+            $("#superadmin-container").classList.add("hide");
             initApp();
         } else {
             $("#login-container").classList.remove("hide");
             $("#app-container").classList.add("hide");
+            $("#superadmin-container").classList.add("hide");
         }
     }
 
@@ -1851,6 +1879,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
         updateBadge($("#sync-status-indicator"));
         updateBadge($("#login-sync-status"));
+        updateBadge($("#superadmin-sync-status"));
     }
 
     function downloadCSVFile(csvContent, filename) {
@@ -2321,4 +2350,313 @@ document.addEventListener("DOMContentLoaded", function() {
         if (installRow) installRow.classList.add("hide");
         if (installedRow) installedRow.classList.remove("hide");
     });
+
+    let superAdminInitialized = false;
+    async function initSuperAdmin() {
+        if (superAdminInitialized) {
+            refreshSuperAdminInstitutes();
+            return;
+        }
+        superAdminInitialized = true;
+        
+        console.log("Initializing Super Admin Dashboard controller...");
+        
+        // 1. Date display
+        const dateEl = $("#superadmin-header-date");
+        if (dateEl) {
+            dateEl.textContent = new Date().toLocaleDateString(undefined, { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+        }
+        
+        // 2. Sync indicator
+        updateSyncStatusIndicator();
+        
+        // 3. Logo upload preview & storage
+        let saLogoBase64 = null;
+        const saLogoUpload = $("#sa-logo-upload");
+        if (saLogoUpload) {
+            saLogoUpload.addEventListener("change", function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                if (file.size > 150 * 1024) {
+                    AuraDOM.showToast("Logo image size must be less than 150KB.", "error");
+                    saLogoUpload.value = "";
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    saLogoBase64 = evt.target.result;
+                    const preview = $("#sa-logo-preview");
+                    if (preview) preview.src = saLogoBase64;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // 4. Color theme sync
+        const saTheme = $("#sa-theme");
+        const saThemeText = $("#sa-theme-text");
+        if (saTheme && saThemeText) {
+            saTheme.addEventListener("input", function() {
+                saThemeText.value = this.value;
+            });
+            saThemeText.addEventListener("input", function() {
+                const val = this.value.trim();
+                if (/^#[0-9A-F]{6}$/i.test(val)) {
+                    saTheme.value = val;
+                }
+            });
+        }
+        
+        // 5. Create institute form submission
+        const saForm = $("#superadmin-create-form");
+        if (saForm) {
+            saForm.addEventListener("submit", async function(e) {
+                e.preventDefault();
+                
+                const tenantId = $("#sa-tenant-id").value.trim().toLowerCase();
+                const name = $("#sa-inst-name").value.trim();
+                const owner = $("#sa-owner-name").value.trim();
+                const mobile = $("#sa-mobile").value.trim();
+                const address = $("#sa-address").value.trim();
+                const email = $("#sa-admin-email").value.trim().toLowerCase();
+                const password = $("#sa-admin-password").value.trim();
+                const theme = saTheme ? saTheme.value : "#6366f1";
+                
+                if (!/^[a-z0-9]+$/.test(tenantId)) {
+                    AuraDOM.showToast("Tenant ID must contain only lowercase letters and numbers (no spaces).", "error");
+                    return;
+                }
+                
+                if (password.length < 6) {
+                    AuraDOM.showToast("Admin login password must be at least 6 characters.", "error");
+                    return;
+                }
+                
+                const submitBtn = saForm.querySelector("button[type='submit']");
+                submitBtn.disabled = true;
+                const oldHTML = submitBtn.innerHTML;
+                submitBtn.innerHTML = `<span class="material-symbols-outlined animated-spin" style="font-size:18px;">sync</span><span>Configuring Tenant...</span>`;
+                
+                try {
+                    const res = await AuraStore.createTenant(tenantId, email, name, theme, owner, mobile, address, password, saLogoBase64);
+                    if (res.success) {
+                        AuraDOM.showToast(res.message, "success");
+                        saForm.reset();
+                        saLogoBase64 = null;
+                        const preview = $("#sa-logo-preview");
+                        if (preview) preview.src = "icons/logo.png";
+                        refreshSuperAdminInstitutes();
+                    } else {
+                        AuraDOM.showToast(res.message, "error");
+                    }
+                } catch (err) {
+                    AuraDOM.showToast(err.message || err, "error");
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = oldHTML;
+                }
+            });
+        }
+        
+        // 6. Bind Search Input
+        const searchInput = $("#sa-search-inst");
+        if (searchInput) {
+            searchInput.addEventListener("input", refreshSuperAdminInstitutes);
+        }
+        
+        // 7. Bind Action Buttons (Delete & Update Password)
+        const saList = $("#sa-institutes-list");
+        if (saList) {
+            saList.addEventListener("click", async function(e) {
+                const deleteBtn = e.target.closest(".btn-sa-delete-inst");
+                const updatePwdBtn = e.target.closest(".btn-sa-update-pwd");
+                
+                if (deleteBtn) {
+                    const tenantId = deleteBtn.dataset.tenant;
+                    const email = deleteBtn.dataset.email;
+                    
+                    if (confirm(`Are you absolutely sure you want to delete the coaching institute '${tenantId}'?\nAll system profiles, database configurations, and admin access for '${email}' will be revoked.`)) {
+                        deleteBtn.disabled = true;
+                        try {
+                            const res = await AuraStore.deleteTenant(tenantId, email);
+                            if (res.success) {
+                                AuraDOM.showToast(res.message, "success");
+                                refreshSuperAdminInstitutes();
+                            } else {
+                                AuraDOM.showToast(res.message, "error");
+                                deleteBtn.disabled = false;
+                            }
+                        } catch (err) {
+                            AuraDOM.showToast(err.message || err, "error");
+                            deleteBtn.disabled = false;
+                        }
+                    }
+                }
+                
+                if (updatePwdBtn) {
+                    const tenantId = updatePwdBtn.dataset.tenant;
+                    const email = updatePwdBtn.dataset.email;
+                    const oldPassword = updatePwdBtn.dataset.oldpwd;
+                    
+                    const card = updatePwdBtn.closest(".sa-inst-card");
+                    const input = card.querySelector(".input-sa-new-pwd");
+                    const newPassword = input.value.trim();
+                    
+                    if (!newPassword || newPassword.length < 6) {
+                        AuraDOM.showToast("Please enter a new password (minimum 6 characters).", "error");
+                        return;
+                    }
+                    
+                    updatePwdBtn.disabled = true;
+                    updatePwdBtn.innerHTML = `<span class="material-symbols-outlined animated-spin" style="font-size:14px;">sync</span><span>Updating...</span>`;
+                    
+                    try {
+                        const res = await AuraStore.updateAdminPassword(email, tenantId, oldPassword, newPassword);
+                        if (res.success) {
+                            AuraDOM.showToast(res.message, "success");
+                            refreshSuperAdminInstitutes();
+                        } else {
+                            AuraDOM.showToast(res.message, "error");
+                            updatePwdBtn.disabled = false;
+                            updatePwdBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;">vpn_key</span><span>Update Password</span>`;
+                        }
+                    } catch (err) {
+                        AuraDOM.showToast(err.message || err, "error");
+                        updatePwdBtn.disabled = false;
+                        updatePwdBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;">vpn_key</span><span>Update Password</span>`;
+                    }
+                }
+            });
+        }
+        
+        // 8. Bind Logout Button
+        const logoutBtn = $("#btn-superadmin-logout");
+        if (logoutBtn) {
+            logoutBtn.addEventListener("click", function() {
+                AuraStore.logout();
+                AuraDOM.showToast("Super Admin logged out.", "info");
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            });
+        }
+        
+        // 9. Theme Toggle
+        const themeToggle = $("#superadmin-theme-toggle");
+        if (themeToggle) {
+            themeToggle.addEventListener("click", () => {
+                const nowTheme = document.documentElement.getAttribute("data-theme");
+                const newTheme = nowTheme === "dark" ? "light" : "dark";
+                
+                document.documentElement.setAttribute("data-theme", newTheme);
+                localStorage.setItem("aurastaff_theme", newTheme);
+            });
+        }
+        
+        // Initial list render
+        refreshSuperAdminInstitutes();
+    }
+    
+    async function refreshSuperAdminInstitutes() {
+        const listContainer = $("#sa-institutes-list");
+        if (!listContainer) return;
+        
+        listContainer.innerHTML = `
+            <div style="display:flex; justify-content:center; align-items:center; height:100px; color:var(--text-secondary);">
+                <span class="material-symbols-outlined animated-spin" style="font-size:24px; margin-right:8px;">sync</span>
+                <span>Loading institutes...</span>
+            </div>
+        `;
+        
+        const searchVal = $("#sa-search-inst") ? $("#sa-search-inst").value.toLowerCase().trim() : "";
+        const institutes = await AuraStore.getRegisteredInstitutes();
+        
+        const filtered = institutes.filter(inst => {
+            return inst.name.toLowerCase().includes(searchVal) ||
+                   inst.tenantId.toLowerCase().includes(searchVal) ||
+                   inst.email.toLowerCase().includes(searchVal) ||
+                   inst.owner.toLowerCase().includes(searchVal);
+        });
+        
+        if (filtered.length === 0) {
+            listContainer.innerHTML = `
+                <div style="text-align:center; padding:40px; color:var(--text-muted);">
+                    <span class="material-symbols-outlined" style="font-size:48px;">domain_disabled</span>
+                    <p style="margin-top:10px; font-size:14px;">No coaching institutes found.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        listContainer.innerHTML = "";
+        filtered.forEach(inst => {
+            const card = document.createElement("div");
+            card.className = "sa-inst-card";
+            card.style = `border-left: 4px solid ${inst.theme}; position: relative;`;
+            
+            card.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div style="width: 48px; height: 48px; border-radius: 6px; background: var(--bg-input); border: 1px solid var(--color-border); display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                            <img src="${inst.logo}" style="width:100%; height:100%; object-fit:contain;">
+                        </div>
+                        <div>
+                            <h4 style="margin:0; font-size:15px; font-weight:700; color:var(--text-primary);">${inst.name}</h4>
+                            <span class="sync-status-badge" style="margin:2px 0 0 0; padding:2px 6px; font-size:9.5px; border-radius:4px; font-weight:700; color:${inst.theme}; background:rgba(${hexToRgb(inst.theme)}, 0.1); border:1px solid rgba(${hexToRgb(inst.theme)}, 0.25);">ID: ${inst.tenantId}</span>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-danger btn-sa-delete-inst" data-tenant="${inst.tenantId}" data-email="${inst.email}" style="height: 30px; padding: 0 10px; font-size: 11px; display:flex; align-items:center; gap:4px;">
+                        <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
+                        <span>Remove</span>
+                    </button>
+                </div>
+                
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px 15px; font-size:12.5px; border-top:1px solid var(--color-border); border-bottom:1px solid var(--color-border); padding:10px 0; margin-top:5px; color:var(--text-secondary);">
+                    <div><strong>Owner:</strong> ${inst.owner || "N/A"}</div>
+                    <div><strong>Mobile:</strong> ${inst.phone || "N/A"}</div>
+                    <div style="grid-column: span 2;"><strong>Admin Email:</strong> <span style="font-family:monospace; color:var(--text-primary);">${inst.email}</span></div>
+                    <div style="grid-column: span 2;"><strong>Address:</strong> ${inst.address || "N/A"}</div>
+                </div>
+                
+                <div style="margin-top: 5px; display:flex; flex-direction:column; gap:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:11.5px; color:var(--text-muted); display:inline-flex; align-items:center; gap:4px;">
+                            <span class="material-symbols-outlined" style="font-size:13px;">key</span>
+                            <span>Stored Password: <strong style="color:var(--text-primary); font-family:monospace;">${inst.password}</strong></span>
+                        </span>
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <div class="input-field" style="flex:1; height:32px;">
+                            <span class="material-symbols-outlined input-icon" style="font-size:15px; left:8px;">lock_reset</span>
+                            <input type="text" class="input-sa-new-pwd" placeholder="New password" style="font-size:12px; padding-left:28px; height:100%; border:none; outline:none; background:transparent; color:var(--text-primary); width:100%;">
+                        </div>
+                        <button class="btn btn-secondary btn-sa-update-pwd" data-tenant="${inst.tenantId}" data-email="${inst.email}" data-oldpwd="${inst.password}" style="height:32px; padding:0 12px; font-size:12px; font-weight:600; display:flex; align-items:center; gap:4px;">
+                            <span class="material-symbols-outlined" style="font-size:14px;">vpn_key</span>
+                            <span>Update Password</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+            listContainer.appendChild(card);
+        });
+    }
+
+    function hexToRgb(hex) {
+        hex = hex.replace('#','');
+        if (hex.length === 3) {
+            hex = hex[0]+hex[0] + hex[1]+hex[1] + hex[2]+hex[2];
+        }
+        const r = parseInt(hex.substring(0,2), 16);
+        const g = parseInt(hex.substring(2,4), 16);
+        const b = parseInt(hex.substring(4,6), 16);
+        return isNaN(r) || isNaN(g) || isNaN(b) ? "99, 102, 241" : `${r}, ${g}, ${b}`;
+    }
 });

@@ -1697,10 +1697,10 @@
         return "Migration complete!";
     };
 
-    AuraStore.createTenant = async function(tenantId, adminEmail, name, theme = "#6366f1") {
+    AuraStore.createTenant = async function(tenantId, adminEmail, name, theme = "#6366f1", owner = "", phone = "", address = "", password = "", logoBase64 = null) {
         if (!AuraStore.db) {
             console.error("Firebase is not connected.");
-            return "Firebase is not connected.";
+            return { success: false, message: "Firebase is not connected." };
         }
         
         tenantId = tenantId.toLowerCase().trim();
@@ -1714,38 +1714,189 @@
             name: name || (tenantId.charAt(0).toUpperCase() + tenantId.slice(1) + " Coaching Institute"),
             tagline: "Unlocking Academic Excellence",
             email: adminEmail,
-            phone: "9876543210",
-            address: "Beawar",
+            phone: phone || "9876543210",
+            address: address || "Beawar",
             theme: theme,
-            logo: "icons/logo.png"
+            logo: logoBase64 || "icons/logo.png",
+            owner: owner || "Administrator"
         };
         
-        try {
-            await db.collection("tenants").doc(tenantId).collection("config").doc("current").set(configData);
-            console.log(`Successfully created tenant config for '${tenantId}' at /tenants/${tenantId}/config/current`);
-        } catch (err) {
-            console.error("Error creating tenant config:", err);
-            return `Error: ${err.message}`;
-        }
-        
-        // 2. Create user document
+        // 2. Create user document (store password so super admin can manage it)
         const userData = {
             email: adminEmail,
             role: "admin",
             tenant_id: tenantId,
-            tenantId: tenantId
+            tenantId: tenantId,
+            password: password || "admin123",
+            owner: owner || "Administrator"
         };
         
         try {
+            // Write tenant config
+            await db.collection("tenants").doc(tenantId).collection("config").doc("current").set(configData);
+            
+            // Write user profile
             await db.collection("users").doc(adminEmail).set(userData);
-            console.log(`Successfully created user profile for '${adminEmail}' at /users/${adminEmail}`);
+            
+            // Create Firebase Auth account if password is provided
+            if (password) {
+                console.log(`Creating Firebase Auth account for '${adminEmail}'...`);
+                const configStr = localStorage.getItem("aurastaff_firebase_config");
+                if (configStr) {
+                    const configObj = JSON.parse(configStr);
+                    // Initialize a secondary app instance specifically for creating this user
+                    const secAppName = "auth-creator-" + Date.now();
+                    const secondaryApp = firebase.initializeApp(configObj, secAppName);
+                    try {
+                        await secondaryApp.auth().createUserWithEmailAndPassword(adminEmail, password);
+                        console.log("Firebase Auth account created successfully.");
+                    } catch (authErr) {
+                        console.warn("Firebase Auth account creation warning (might already exist):", authErr.message);
+                    } finally {
+                        await secondaryApp.delete();
+                    }
+                }
+            }
+            
+            console.log(`Tenant '${tenantId}' successfully configured!`);
+            return { success: true, message: `Tenant '${tenantId}' successfully configured!` };
         } catch (err) {
-            console.error("Error creating user profile:", err);
-            return `Error: ${err.message}`;
+            console.error("Error creating tenant:", err);
+            return { success: false, message: err.message };
+        }
+    };
+
+    AuraStore.getRegisteredInstitutes = async function() {
+        if (!AuraStore.db) return [];
+        try {
+            const usersSnapshot = await AuraStore.db.collection("users").where("role", "==", "admin").get();
+            const list = [];
+            for (const doc of usersSnapshot.docs) {
+                const userData = doc.data();
+                const tenantId = userData.tenant_id || userData.tenantId;
+                if (!tenantId) continue;
+                
+                // Fetch tenant config
+                let config = null;
+                try {
+                    const configDoc = await AuraStore.db.collection("tenants").doc(tenantId).collection("config").doc("current").get();
+                    if (configDoc.exists) {
+                        config = configDoc.data();
+                    }
+                } catch (configErr) {
+                    console.warn(`Could not load config for tenant ${tenantId}:`, configErr);
+                }
+                
+                list.push({
+                    email: userData.email || doc.id,
+                    tenantId: tenantId,
+                    password: userData.password || "admin123",
+                    owner: config ? (config.owner || userData.owner || "") : "",
+                    name: config ? (config.name || "") : (tenantId.toUpperCase()),
+                    theme: config ? (config.theme || "#6366f1") : "#6366f1",
+                    logo: config ? (config.logo || "icons/logo.png") : "icons/logo.png",
+                    address: config ? (config.address || "") : "",
+                    phone: config ? (config.phone || "") : ""
+                });
+            }
+            return list;
+        } catch (err) {
+            console.error("Error fetching registered institutes:", err);
+            return [];
+        }
+    };
+
+    AuraStore.updateAdminPassword = async function(adminEmail, tenantId, oldPassword, newPassword) {
+        if (!AuraStore.db) {
+            console.error("Firebase is not connected.");
+            return { success: false, message: "Firebase is not connected." };
         }
         
-        console.log(`Tenant '${tenantId}' successfully configured! Please ensure you create the authentication account for '${adminEmail}' in your Firebase Auth Console.`);
-        return `Tenant '${tenantId}' successfully configured!`;
+        adminEmail = adminEmail.toLowerCase().trim();
+        const db = AuraStore.db;
+        
+        try {
+            // 1. Update password field in Firestore /users/{email} doc
+            await db.collection("users").doc(adminEmail).update({ password: newPassword });
+            
+            // 2. Try to update password in Firebase Auth using the secondary app
+            const configStr = localStorage.getItem("aurastaff_firebase_config");
+            if (configStr) {
+                const configObj = JSON.parse(configStr);
+                const secAppName = "auth-updater-" + Date.now();
+                const secondaryApp = firebase.initializeApp(configObj, secAppName);
+                try {
+                    // Sign in as the admin user using their old password
+                    await secondaryApp.auth().signInWithEmailAndPassword(adminEmail, oldPassword);
+                    // Update password
+                    if (secondaryApp.auth().currentUser) {
+                        await secondaryApp.auth().currentUser.updatePassword(newPassword);
+                        console.log("Firebase Auth password updated successfully.");
+                    }
+                } catch (authErr) {
+                    console.warn("Firebase Auth password update failed (trying bypass or create user fallback):", authErr.message);
+                    
+                    // Fallback: If sign-in failed (maybe Auth user doesn't exist yet), let's try creating them
+                    try {
+                        await secondaryApp.auth().createUserWithEmailAndPassword(adminEmail, newPassword);
+                        console.log("Fallback: Created missing Firebase Auth account during password change.");
+                    } catch (createErr) {
+                        console.error("Auth creation fallback failed:", createErr);
+                        return { success: false, message: "Could not update Firebase Authentication credentials: " + authErr.message };
+                    }
+                } finally {
+                    await secondaryApp.delete();
+                }
+            }
+            return { success: true, message: "Password updated successfully!" };
+        } catch (err) {
+            console.error("Error updating admin password:", err);
+            return { success: false, message: err.message };
+        }
+    };
+
+    AuraStore.updateTenantDetails = async function(tenantId, adminEmail, name, theme, owner, phone, address, logoBase64) {
+        if (!AuraStore.db) return { success: false, message: "Firebase is not connected." };
+        try {
+            const db = AuraStore.db;
+            const configRef = db.collection("tenants").doc(tenantId).collection("config").doc("current");
+            const updateData = {
+                name: name,
+                theme: theme,
+                owner: owner,
+                phone: phone,
+                address: address
+            };
+            if (logoBase64) {
+                updateData.logo = logoBase64;
+            }
+            await configRef.update(updateData);
+            
+            // Also update owner in users profile
+            await db.collection("users").doc(adminEmail).update({ owner: owner });
+            
+            return { success: true, message: "Institute details updated successfully!" };
+        } catch (err) {
+            console.error("Error updating tenant details:", err);
+            return { success: false, message: err.message };
+        }
+    };
+
+    AuraStore.deleteTenant = async function(tenantId, adminEmail) {
+        if (!AuraStore.db) return { success: false, message: "Firebase is not connected." };
+        try {
+            const db = AuraStore.db;
+            // 1. Delete user profile
+            await db.collection("users").doc(adminEmail).delete();
+            // 2. Delete config
+            await db.collection("tenants").doc(tenantId).collection("config").doc("current").delete();
+            
+            console.log(`Tenant '${tenantId}' deleted successfully.`);
+            return { success: true, message: `Tenant '${tenantId}' deleted successfully.` };
+        } catch (err) {
+            console.error("Error deleting tenant:", err);
+            return { success: false, message: err.message };
+        }
     };
 
 })();
