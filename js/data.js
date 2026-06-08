@@ -19,7 +19,9 @@
         }
         // If Firebase mode is active, block root collection access to prevent pollution
         if (AuraStore.useFirebase) {
-            console.warn(`Blocked root collection access for '${name}' because no tenant is active.`);
+            if (name !== "logs") {
+                console.warn(`Blocked root collection access for '${name}' because no tenant is active.`);
+            }
             return null;
         }
         return AuraStore.db.collection(name);
@@ -31,9 +33,9 @@
         
         const ref = getCollectionRef(collectionName);
         if (!ref) {
-            console.error(`Firestore Write Blocked: Collection '${collectionName}' ref is null (no active tenant ID).`);
-            if (window.AuraDOM && AuraDOM.showToast) {
-                AuraDOM.showToast(`Cloud Sync Error: No active tenant session for '${collectionName}'.`, "error");
+            // Silently ignore log writes or startup syncs before login, only warn for other data
+            if (collectionName !== "logs") {
+                console.warn(`Firestore Write Blocked: Collection '${collectionName}' ref is null (no active tenant ID).`);
             }
             return;
         }
@@ -1605,6 +1607,86 @@
             const doc = await db.collection("security").doc("passwords").get();
             if (doc.exists) {
                 await db.collection("tenants").doc(tenantId).collection("security").doc("passwords").set(doc.data());
+                console.log("Successfully migrated security/passwords.");
+            }
+        } catch (err) {
+            console.error("Error migrating security passwords:", err);
+        }
+
+        console.log("Migration complete!");
+        return "Migration complete!";
+    };
+
+    AuraStore.migrateTenantToTenant = async function(fromTenantId, toTenantId) {
+        if (!AuraStore.db) {
+            console.error("Firebase is not connected.");
+            return "Firebase is not connected.";
+        }
+        
+        console.log(`Starting migration from tenant '${fromTenantId}' to tenant '${toTenantId}'...`);
+        const db = AuraStore.db;
+        
+        const collections = [
+            "staff", "students", "inventory", "courses", 
+            "attendance", "payroll", "finance", "studentAttendance"
+        ];
+        
+        for (const col of collections) {
+            try {
+                console.log(`Migrating collection: ${col}...`);
+                const sourceRef = db.collection("tenants").doc(fromTenantId).collection(col === "branding" ? "config" : col);
+                const snapshot = await sourceRef.get();
+                if (snapshot.empty) {
+                    console.log(`Collection ${col} is empty in source tenant.`);
+                    continue;
+                }
+                
+                const targetRef = db.collection("tenants").doc(toTenantId).collection(col === "branding" ? "config" : col);
+                const batch = db.batch();
+                let count = 0;
+                
+                snapshot.forEach(doc => {
+                    batch.set(targetRef.doc(doc.id), doc.data());
+                    count++;
+                });
+                
+                await batch.commit();
+                console.log(`Successfully migrated ${count} documents for ${col}.`);
+            } catch (err) {
+                console.error(`Error migrating collection ${col}:`, err);
+            }
+        }
+        
+        // Migrate branding config doc
+        try {
+            console.log("Migrating branding/current...");
+            const doc = await db.collection("tenants").doc(fromTenantId).collection("config").doc("current").get();
+            if (doc.exists) {
+                await db.collection("tenants").doc(toTenantId).collection("config").doc("current").set(doc.data());
+                console.log("Successfully migrated branding/current.");
+            }
+        } catch (err) {
+            console.error("Error migrating branding:", err);
+        }
+
+        // Migrate logs doc
+        try {
+            console.log("Migrating logs/current...");
+            const doc = await db.collection("tenants").doc(fromTenantId).collection("logs").doc("current").get();
+            if (doc.exists) {
+                await db.collection("tenants").doc(toTenantId).collection("logs").doc("current").set(doc.data());
+                console.log("Successfully migrated logs/current.");
+            }
+        } catch (err) {
+            console.error("Error migrating logs:", err);
+        }
+
+        // Migrate passwords doc
+        try {
+            console.log("Migrating security/passwords...");
+            const doc = await db.collection("tenants").doc(fromTenantId).collection("security").doc("passwords").get();
+            if (doc.exists) {
+                await db.collection("tenants").doc(toTenantId).collection("security").doc("passwords").set(doc.data());
                 console.log("Successfully migrated security/passwords.");
             }
         } catch (err) {
