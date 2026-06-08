@@ -1362,11 +1362,30 @@
 
     AuraStore.fetchUserProfile = async function(user) {
         if (!AuraStore.db) return null;
-        const email = user.email;
-        let doc = await AuraStore.db.collection("users").doc(email).get();
+        const email = user.email ? user.email.toLowerCase().trim() : "";
+        
+        // 1. Try exact lowercase email document ID
+        if (email) {
+            let doc = await AuraStore.db.collection("users").doc(email).get();
+            if (doc.exists) return doc.data();
+        }
+        
+        // 2. Try UID document ID
+        let doc = await AuraStore.db.collection("users").doc(user.uid).get();
         if (doc.exists) return doc.data();
-        doc = await AuraStore.db.collection("users").doc(user.uid).get();
-        if (doc.exists) return doc.data();
+        
+        // 3. Fallback: Query collection by email field
+        if (email) {
+            try {
+                const snapshot = await AuraStore.db.collection("users").where("email", "==", email).get();
+                if (!snapshot.empty) {
+                    return snapshot.docs[0].data();
+                }
+            } catch (err) {
+                console.error("Firestore email fallback query error:", err);
+            }
+        }
+        
         return null;
     };
 

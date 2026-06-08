@@ -100,6 +100,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
         firebase.auth().onAuthStateChanged(async (user) => {
             const loaderEl = document.getElementById("app-startup-loader");
+            updateSyncStatusIndicator();
             
             if (user) {
                 try {
@@ -132,13 +133,28 @@ document.addEventListener("DOMContentLoaded", function() {
                         // Hide login card, show app dashboard
                         $("#login-container").classList.add("hide");
                         $("#app-container").classList.remove("hide");
+                        
+                        const errorBlock = $("#login-error");
+                        if (errorBlock) errorBlock.classList.add("hide");
+                        
                         initApp();
                     } else {
+                        console.error("Firestore user profile document not found for user:", user.email);
+                        const errorBlock = $("#login-error");
+                        if (errorBlock) {
+                            errorBlock.querySelector(".error-msg").innerHTML = `Profile configuration not found in Firestore root <code>/users</code> collection for <b>${user.email}</b>.`;
+                            errorBlock.classList.remove("hide");
+                        }
                         AuraDOM.showToast("Authentication Error: User profile configuration not found.", "error");
                         firebase.auth().signOut();
                     }
                 } catch (err) {
                     console.error("Error loading user profile:", err);
+                    const errorBlock = $("#login-error");
+                    if (errorBlock) {
+                        errorBlock.querySelector(".error-msg").textContent = `Firestore Error: ${err.message || "Failed to retrieve user tenant profile."}`;
+                        errorBlock.classList.remove("hide");
+                    }
                     AuraDOM.showToast("Authentication Error: Failed to retrieve user tenant profile.", "error");
                     firebase.auth().signOut();
                 }
@@ -171,6 +187,8 @@ document.addEventListener("DOMContentLoaded", function() {
         }
 
         $("#firebase-setup-container").classList.add("hide");
+        
+        updateSyncStatusIndicator();
 
         if (AuraStore.useFirebase) {
             return; // Managed by onAuthStateChanged
@@ -1789,26 +1807,30 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     function updateSyncStatusIndicator() {
-        const indicator = $("#sync-status-indicator");
-        if (!indicator) return;
-        const icon = indicator.querySelector(".status-icon");
-        const text = indicator.querySelector(".status-text");
+        const updateBadge = (el) => {
+            if (!el) return;
+            const icon = el.querySelector(".status-icon");
+            const text = el.querySelector(".status-text");
+            
+            el.classList.remove("hide");
+            
+            if (!AuraStore.useFirebase) {
+                el.className = "sync-status-badge error";
+                if (icon) icon.textContent = "cloud_off";
+                if (text) text.textContent = "Disconnected";
+            } else if (!navigator.onLine) {
+                el.className = "sync-status-badge syncing";
+                if (icon) icon.textContent = "cloud_queue";
+                if (text) text.textContent = "Offline Cache";
+            } else {
+                el.className = "sync-status-badge";
+                if (icon) icon.textContent = "cloud_done";
+                if (text) text.textContent = "Connected (Real-time)";
+            }
+        };
 
-        indicator.classList.remove("hide"); // Always show database status
-
-        if (!AuraStore.useFirebase) {
-            indicator.className = "sync-status-badge error";
-            if (icon) icon.textContent = "cloud_off";
-            if (text) text.textContent = "Disconnected";
-        } else if (!navigator.onLine) {
-            indicator.className = "sync-status-badge syncing";
-            if (icon) icon.textContent = "cloud_queue";
-            if (text) text.textContent = "Offline Cache";
-        } else {
-            indicator.className = "sync-status-badge";
-            if (icon) icon.textContent = "cloud_done";
-            if (text) text.textContent = "Connected (Real-time)";
-        }
+        updateBadge($("#sync-status-indicator"));
+        updateBadge($("#login-sync-status"));
     }
 
     function downloadCSVFile(csvContent, filename) {
