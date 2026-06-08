@@ -1536,4 +1536,83 @@
         return csv;
     };
 
+    AuraStore.migrateRootToTenant = async function(tenantId) {
+        if (!AuraStore.db) {
+            console.error("Firebase is not connected.");
+            return "Firebase is not connected.";
+        }
+        
+        console.log(`Starting migration from root collections to tenant: '${tenantId}'...`);
+        const db = AuraStore.db;
+        
+        const collections = [
+            "staff", "students", "inventory", "courses", 
+            "attendance", "payroll", "finance", "studentAttendance"
+        ];
+        
+        for (const col of collections) {
+            try {
+                console.log(`Migrating collection: ${col}...`);
+                const snapshot = await db.collection(col).get();
+                if (snapshot.empty) {
+                    console.log(`Collection ${col} is empty.`);
+                    continue;
+                }
+                
+                const targetRef = db.collection("tenants").doc(tenantId).collection(col === "branding" ? "config" : col);
+                const batch = db.batch();
+                let count = 0;
+                
+                snapshot.forEach(doc => {
+                    batch.set(targetRef.doc(doc.id), doc.data());
+                    count++;
+                });
+                
+                await batch.commit();
+                console.log(`Successfully migrated ${count} documents for ${col}.`);
+            } catch (err) {
+                console.error(`Error migrating collection ${col}:`, err);
+            }
+        }
+        
+        // Migrate branding doc
+        try {
+            console.log("Migrating branding/current...");
+            const doc = await db.collection("branding").doc("current").get();
+            if (doc.exists) {
+                await db.collection("tenants").doc(tenantId).collection("config").doc("current").set(doc.data());
+                console.log("Successfully migrated branding/current.");
+            }
+        } catch (err) {
+            console.error("Error migrating branding:", err);
+        }
+
+        // Migrate logs doc
+        try {
+            console.log("Migrating logs/current...");
+            const doc = await db.collection("logs").doc("current").get();
+            if (doc.exists) {
+                await db.collection("tenants").doc(tenantId).collection("logs").doc("current").set(doc.data());
+                console.log("Successfully migrated logs/current.");
+            }
+        } catch (err) {
+            console.error("Error migrating logs:", err);
+        }
+
+        // Migrate passwords doc
+        try {
+            console.log("Migrating security/passwords...");
+            const doc = await db.collection("security").doc("passwords").get();
+            if (doc.exists) {
+                await db.collection("tenants").doc(tenantId).collection("security").doc("passwords").set(doc.data());
+                console.log("Successfully migrated security/passwords.");
+            }
+        } catch (err) {
+            console.error("Error migrating security passwords:", err);
+        }
+
+        console.log("Migration complete!");
+        return "Migration complete!";
+    };
+
 })();
