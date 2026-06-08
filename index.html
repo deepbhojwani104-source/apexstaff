@@ -27,7 +27,7 @@
         <div class="login-glass-card">
             <div class="login-header">
                 <div class="logo-box">
-                    <img src="icons/logo.png" alt="Samyak Logo" style="height: 50px; margin-right: 12px; border-radius: 4px; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));">
+                    <img src="icons/logo.png" class="brand-logo-img" alt="Logo" style="height: 50px; margin-right: 12px; border-radius: 4px; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));">
                     <h2>Aura<span>Staff</span></h2>
                 </div>
                 <p class="subtitle">Coaching Staff Management Portal</p>
@@ -35,10 +35,10 @@
             
             <form id="login-form" class="login-form">
                 <div class="input-group">
-                    <label for="username">Username</label>
+                    <label for="username">Email / Username</label>
                     <div class="input-field">
-                        <span class="material-symbols-outlined input-icon">person</span>
-                        <input type="text" id="username" placeholder="Enter username" required value="admin">
+                        <span class="material-symbols-outlined input-icon">mail</span>
+                        <input type="text" id="username" placeholder="Enter email or username" required value="admin@samyak.com">
                     </div>
                 </div>
                 
@@ -81,7 +81,7 @@
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-brand">
-                <img src="icons/logo.png" alt="Samyak Logo" style="height: 36px; margin-right: 8px; border-radius: 4px; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));">
+                <img src="icons/logo.png" class="brand-logo-img" alt="Logo" style="height: 36px; margin-right: 8px; border-radius: 4px; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));">
                 <h2>Aura<span>Staff</span></h2>
             </div>
             
@@ -149,7 +149,7 @@
             <!-- Header Bar -->
             <header class="top-header">
                 <div class="header-left" style="display: flex; align-items: center; gap: 12px;">
-                    <img src="icons/logo.png" alt="Samyak Logo" style="height: 38px; border-radius: 4px; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));">
+                    <img src="icons/logo.png" class="brand-logo-img" alt="Logo" style="height: 38px; border-radius: 4px; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));">
                     <div style="display: flex; flex-direction: column;">
                         <h1 id="page-title" style="margin: 0; font-size: 22px; font-weight: 700;">Dashboard Overview</h1>
                         <p class="current-date-text" id="header-date" style="margin: 2px 0 0 0;">Tuesday, June 2, 2026</p>
@@ -1789,7 +1789,7 @@
         <div class="login-glass-card">
             <div class="login-header">
                 <div class="logo-box">
-                    <img src="icons/logo.png" alt="Samyak Logo" style="height: 50px; margin-right: 12px; border-radius: 4px; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));">
+                    <img src="icons/logo.png" class="brand-logo-img" alt="Logo" style="height: 50px; margin-right: 12px; border-radius: 4px; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));">
                     <h2>Aura<span>Staff</span></h2>
                 </div>
                 <p class="subtitle" style="margin-top: 8px;">Firebase Cloud Setup</p>
@@ -1822,6 +1822,7 @@
     <!-- Firebase Compat SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 
     <script src="js/data.js"></script>
     <script src="js/dom.js"></script>

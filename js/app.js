@@ -10,9 +10,156 @@ document.addEventListener("DOMContentLoaded", function() {
     // Initial state loading
     AuraStore.loadState();
 
+    if (AuraStore.useFirebase) {
+        initFirebaseObserver();
+    } else {
+        checkAuth();
+    }
+
     // ==========================================================================
     // 1. Session Auth Logic & Initialization
     // ==========================================================================
+    let authListenerInitialized = false;
+
+    AuraStore.applyTenantUI = function(config) {
+        if (!config) return;
+        
+        // 1. Set logo images
+        if (config.logo) {
+            document.querySelectorAll('.brand-logo-img').forEach(img => {
+                img.src = config.logo;
+            });
+        }
+        
+        // 2. Set branding text
+        if (config.name) {
+            const parts = config.name.split(" ");
+            const first = parts[0];
+            const rest = parts.slice(1).join(" ") || "Staff";
+            const html = `${first}<span>${rest}</span>`;
+            document.querySelectorAll('.logo-box h2, .sidebar-brand h2').forEach(el => {
+                el.innerHTML = html;
+            });
+            
+            // Update page title
+            document.title = `${config.name} - Management Portal`;
+        }
+        
+        // 3. Set theme color
+        if (config.theme) {
+            const hex = config.theme;
+            document.documentElement.style.setProperty('--color-primary', hex);
+            document.documentElement.style.setProperty('--color-primary-hover', hex);
+            
+            // Convert to rgb for transparency support in css
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+                document.documentElement.style.setProperty('--color-primary-rgb', `${r}, ${g}, ${b}`);
+            }
+        }
+    };
+
+    AuraStore.resetTenantUI = function() {
+        // Revert logos to default
+        document.querySelectorAll('.brand-logo-img').forEach(img => {
+            img.src = "icons/logo.png";
+        });
+        
+        // Revert text to default
+        document.querySelectorAll('.logo-box h2, .sidebar-brand h2').forEach(el => {
+            el.innerHTML = `Aura<span>Staff</span>`;
+        });
+        
+        // Revert page title
+        document.title = "AuraStaff - Management Portal";
+        
+        // Revert theme colors
+        document.documentElement.style.setProperty('--color-primary', '#6366f1');
+        document.documentElement.style.setProperty('--color-primary-hover', '#4f46e5');
+        document.documentElement.style.setProperty('--color-primary-rgb', '99, 102, 241');
+    };
+
+    function initFirebaseObserver() {
+        if (authListenerInitialized) return;
+        if (!AuraStore.useFirebase || typeof firebase === "undefined" || !firebase.auth) return;
+        
+        authListenerInitialized = true;
+        
+        // Show a loader during initial auth state resolution
+        const body = document.body;
+        const loader = document.createElement("div");
+        loader.id = "app-startup-loader";
+        loader.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-app); display:flex; align-items:center; justify-content:center; z-index:99999; flex-direction:column; gap:16px; color:var(--text-primary);";
+        loader.innerHTML = `
+            <span class="material-symbols-outlined animated-spin" style="font-size: 48px; color: var(--color-primary);">sync</span>
+            <span style="font-size:14px; font-weight:600; font-family:'Plus Jakarta Sans',sans-serif;">Loading system environment...</span>
+        `;
+        body.appendChild(loader);
+
+        firebase.auth().onAuthStateChanged(async (user) => {
+            const loaderEl = document.getElementById("app-startup-loader");
+            
+            if (user) {
+                try {
+                    // Fetch user profile from /users/{email} or /users/{uid}
+                    const profile = await AuraStore.fetchUserProfile(user);
+                    if (profile) {
+                        const tenantId = profile.tenant_id || profile.tenantId;
+                        const role = profile.role || "staff";
+                        
+                        AuraStore.currentTenantId = tenantId;
+                        sessionStorage.setItem("aurastaff_logged_in", "true");
+                        sessionStorage.setItem("aurastaff_user_role", role);
+                        
+                        // Fetch tenant branding config
+                        const config = await AuraStore.fetchTenantConfig(tenantId);
+                        if (config) {
+                            // Apply custom tenant branding and theme
+                            AuraStore.applyTenantUI(config);
+                        } else {
+                            AuraStore.resetTenantUI();
+                        }
+                        
+                        // Start real-time Firestore listeners for this tenant
+                        AuraStore.startFirebaseListeners();
+                        
+                        // Setup dynamic sidebar details
+                        const roleName = role === "admin" ? "Administrator" : role === "faculty" ? "Faculty" : "Staff Clerk";
+                        AuraStore.logActivity(`Authenticated via Firebase Auth: ${user.email} (${roleName}).`, "success");
+                        
+                        // Hide login card, show app dashboard
+                        $("#login-container").classList.add("hide");
+                        $("#app-container").classList.remove("hide");
+                        initApp();
+                    } else {
+                        AuraDOM.showToast("Authentication Error: User profile configuration not found.", "error");
+                        firebase.auth().signOut();
+                    }
+                } catch (err) {
+                    console.error("Error loading user profile:", err);
+                    AuraDOM.showToast("Authentication Error: Failed to retrieve user tenant profile.", "error");
+                    firebase.auth().signOut();
+                }
+            } else {
+                sessionStorage.removeItem("aurastaff_logged_in");
+                sessionStorage.removeItem("aurastaff_user_role");
+                AuraStore.currentTenantId = null;
+                AuraStore.stopFirebaseListeners();
+                AuraStore.resetTenantUI();
+                
+                $("#login-container").classList.remove("hide");
+                $("#app-container").classList.add("hide");
+            }
+
+            // Remove startup loader once state is resolved
+            if (loaderEl) {
+                loaderEl.remove();
+            }
+        });
+    }
+
     function checkAuth() {
         const hasFirebaseConfig = localStorage.getItem("aurastaff_firebase_config") !== null;
         if (!hasFirebaseConfig) {
@@ -25,6 +172,10 @@ document.addEventListener("DOMContentLoaded", function() {
 
         $("#firebase-setup-container").classList.add("hide");
 
+        if (AuraStore.useFirebase) {
+            return; // Managed by onAuthStateChanged
+        }
+
         if (AuraStore.isLoggedIn()) {
             $("#login-container").classList.add("hide");
             $("#app-container").classList.remove("hide");
@@ -36,23 +187,47 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     // Login Form Submit handler
-    $("#login-form").addEventListener("submit", function(e) {
+    $("#login-form").addEventListener("submit", async function(e) {
         e.preventDefault();
-        const username = $("#username").value.trim();
+        const usernameOrEmail = $("#username").value.trim();
         const password = $("#password").value.trim();
         
-        const success = AuraStore.login(username, password);
-        if (success) {
-            $("#login-error").classList.add("hide");
-            checkAuth();
-            const role = AuraStore.getUserRole();
-            const roleName = role === "admin" ? "Administrator" : role === "faculty" ? "Faculty" : "Staff Clerk";
-            AuraDOM.showToast(`Logged in successfully as ${roleName}`, "success");
+        const errorBlock = $("#login-error");
+        errorBlock.classList.add("hide");
+        
+        if (AuraStore.useFirebase && typeof firebase !== "undefined" && firebase.auth) {
+            // Online Mode: Firebase Authentication
+            const btn = $("#login-form button[type='submit']");
+            try {
+                btn.disabled = true;
+                btn.innerHTML = `<span class="material-symbols-outlined animated-spin" style="font-size:16px; margin-right:6px;">sync</span><span>Verifying...</span>`;
+                
+                await firebase.auth().signInWithEmailAndPassword(usernameOrEmail, password);
+                // Success is handled by onAuthStateChanged observer
+            } catch (err) {
+                console.error("Login authentication error:", err);
+                btn.disabled = false;
+                btn.innerHTML = `<span>Sign In</span> <span class="material-symbols-outlined">arrow_forward</span>`;
+                
+                errorBlock.querySelector(".error-msg").textContent = err.message || "Invalid credentials. Try again.";
+                errorBlock.classList.remove("hide");
+                errorBlock.classList.add("shake");
+                setTimeout(() => errorBlock.classList.remove("shake"), 300);
+            }
         } else {
-            const errorBlock = $("#login-error");
-            errorBlock.classList.remove("hide");
-            errorBlock.classList.add("shake");
-            setTimeout(() => errorBlock.classList.remove("shake"), 300);
+            // Offline Mode: Custom passwords
+            const success = AuraStore.login(usernameOrEmail, password);
+            if (success) {
+                checkAuth();
+                const role = AuraStore.getUserRole();
+                const roleName = role === "admin" ? "Administrator" : role === "faculty" ? "Faculty" : "Staff Clerk";
+                AuraDOM.showToast(`Logged in successfully as ${roleName}`, "success");
+            } else {
+                errorBlock.querySelector(".error-msg").textContent = "Invalid username or password!";
+                errorBlock.classList.remove("hide");
+                errorBlock.classList.add("shake");
+                setTimeout(() => errorBlock.classList.remove("shake"), 300);
+            }
         }
     });
 

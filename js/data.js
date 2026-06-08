@@ -7,6 +7,20 @@
     if (!window.AuraStore) {
         window.AuraStore = {};
     }
+    AuraStore.currentTenantId = null;
+    AuraStore.getCurrentTenantId = function() {
+        return AuraStore.currentTenantId;
+    };
+    function getCollectionRef(name) {
+        if (!AuraStore.db) return null;
+        if (AuraStore.currentTenantId) {
+            const finalName = name === "branding" ? "config" : name;
+            return getCollectionRef("tenants").doc(AuraStore.currentTenantId).collection(finalName);
+        }
+        return getCollectionRef(name);
+    }
+    AuraStore.getCollectionRef = getCollectionRef;
+
 
     // Default branding profile
     const DEFAULT_BRANDING = {
@@ -44,12 +58,14 @@
     AuraStore.db = null;
 
     // Helper to start Firestore real-time collection sync listeners
-    function initFirebaseListeners() {
+    let activeUnsubscribes = [];
+
+    AuraStore.startFirebaseListeners = function() {
         if (!AuraStore.db) return;
-        const db = AuraStore.db;
+        AuraStore.stopFirebaseListeners();
 
         // 1. Staff Listener
-        db.collection("staff").onSnapshot(snapshot => {
+        let unsub1 = getCollectionRef("staff").onSnapshot(snapshot => {
             const list = [];
             snapshot.forEach(doc => {
                 list.push(doc.data());
@@ -64,9 +80,10 @@
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "directory" } }));
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "dashboard" } }));
         }, err => console.error("Firestore staff snapshot error:", err));
+        activeUnsubscribes.push(unsub1);
 
         // 2. Attendance Listener
-        db.collection("attendance").onSnapshot(snapshot => {
+        let unsub2 = getCollectionRef("attendance").onSnapshot(snapshot => {
             const attend = {};
             snapshot.forEach(doc => {
                 attend[doc.id] = doc.data();
@@ -81,9 +98,10 @@
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "attendance" } }));
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "dashboard" } }));
         }, err => console.error("Firestore attendance snapshot error:", err));
+        activeUnsubscribes.push(unsub2);
 
         // 3. Payroll Listener
-        db.collection("payroll").onSnapshot(snapshot => {
+        let unsub3 = getCollectionRef("payroll").onSnapshot(snapshot => {
             const pay = {};
             snapshot.forEach(doc => {
                 pay[doc.id] = doc.data();
@@ -98,9 +116,10 @@
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "payroll" } }));
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "dashboard" } }));
         }, err => console.error("Firestore payroll snapshot error:", err));
+        activeUnsubscribes.push(unsub3);
 
         // 4. Students Listener
-        db.collection("students").onSnapshot(snapshot => {
+        let unsub4 = getCollectionRef("students").onSnapshot(snapshot => {
             const list = [];
             snapshot.forEach(doc => {
                 list.push(doc.data());
@@ -115,9 +134,10 @@
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "students" } }));
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "dashboard" } }));
         }, err => console.error("Firestore students snapshot error:", err));
+        activeUnsubscribes.push(unsub4);
 
         // 5. Courses Listener
-        db.collection("courses").onSnapshot(snapshot => {
+        let unsub5 = getCollectionRef("courses").onSnapshot(snapshot => {
             const list = [];
             snapshot.forEach(doc => {
                 list.push(doc.data());
@@ -131,9 +151,10 @@
             AuraStore.saveState();
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "students" } }));
         }, err => console.error("Firestore courses snapshot error:", err));
+        activeUnsubscribes.push(unsub5);
 
         // 6. Inventory Listener
-        db.collection("inventory").onSnapshot(snapshot => {
+        let unsub6 = getCollectionRef("inventory").onSnapshot(snapshot => {
             const list = [];
             snapshot.forEach(doc => {
                 list.push(doc.data());
@@ -148,9 +169,10 @@
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "inventory" } }));
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "dashboard" } }));
         }, err => console.error("Firestore inventory snapshot error:", err));
+        activeUnsubscribes.push(unsub6);
 
         // 7. Branding Listener
-        db.collection("branding").doc("current").onSnapshot(doc => {
+        let unsub7 = getCollectionRef("branding").doc("current").onSnapshot(doc => {
             const isMigrated = localStorage.getItem("aurastaff_firebase_migrated") === "true";
             if (!doc.exists && !isMigrated) {
                 console.log("Firestore branding doc is missing; guarding local branding before migration.");
@@ -166,9 +188,10 @@
                 }
             }
         }, err => console.error("Firestore branding snapshot error:", err));
+        activeUnsubscribes.push(unsub7);
 
         // 8. Logs Listener
-        db.collection("logs").doc("current").onSnapshot(doc => {
+        let unsub8 = getCollectionRef("logs").doc("current").onSnapshot(doc => {
             const isMigrated = localStorage.getItem("aurastaff_firebase_migrated") === "true";
             if (!doc.exists && !isMigrated) {
                 console.log("Firestore logs doc is missing; guarding local logs before migration.");
@@ -180,9 +203,10 @@
                 document.dispatchEvent(new CustomEvent('activityLogged'));
             }
         }, err => console.error("Firestore logs snapshot error:", err));
+        activeUnsubscribes.push(unsub8);
 
         // 9. Finance Listener
-        db.collection("finance").onSnapshot(snapshot => {
+        let unsub9 = getCollectionRef("finance").onSnapshot(snapshot => {
             const data = {};
             snapshot.forEach(doc => {
                 data[doc.id] = doc.data();
@@ -197,9 +221,10 @@
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "finance" } }));
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "dashboard" } }));
         }, err => console.error("Firestore finance snapshot error:", err));
+        activeUnsubscribes.push(unsub9);
 
         // 10. Student Attendance Listener
-        db.collection("studentAttendance").onSnapshot(snapshot => {
+        let unsub10 = getCollectionRef("studentAttendance").onSnapshot(snapshot => {
             const attend = {};
             snapshot.forEach(doc => {
                 attend[doc.id] = doc.data();
@@ -213,9 +238,10 @@
             AuraStore.saveState();
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "student-attendance" } }));
         }, err => console.error("Firestore studentAttendance snapshot error:", err));
+        activeUnsubscribes.push(unsub10);
 
         // 11. Security Listener
-        db.collection("security").doc("passwords").onSnapshot(doc => {
+        let unsub11 = getCollectionRef("security").doc("passwords").onSnapshot(doc => {
             const isMigrated = localStorage.getItem("aurastaff_firebase_migrated") === "true";
             if (!doc.exists && !isMigrated) {
                 console.log("Firestore security passwords doc is missing; guarding local passwords.");
@@ -226,9 +252,17 @@
                 AuraStore.saveState();
             }
         }, err => console.error("Firestore security snapshot error:", err));
-    }
+        activeUnsubscribes.push(unsub11);
+    };
 
-    // Initialize Firebase SDK Connection
+    AuraStore.stopFirebaseListeners = function() {
+        activeUnsubscribes.forEach(unsub => {
+            if (typeof unsub === "function") unsub();
+        });
+        activeUnsubscribes = [];
+    };
+
+        // Initialize Firebase SDK Connection
     AuraStore.initFirebase = function() {
         const configStr = localStorage.getItem("aurastaff_firebase_config");
         if (!configStr) {
@@ -252,7 +286,7 @@
             });
             AuraStore.db = db;
             AuraStore.useFirebase = true;
-            initFirebaseListeners();
+            // Listeners started dynamically after login
             AuraStore.logActivity("Firebase connected successfully.", "success");
         } catch (e) {
             console.error("Firebase init failed:", e);
@@ -274,53 +308,53 @@
         try {
             // Batch writes for Staff
             state.staff.forEach(s => {
-                batch.set(db.collection("staff").doc(s.id), s);
+                batch.set(getCollectionRef("staff").doc(s.id), s);
             });
 
             // Batch writes for Students
             state.students.forEach(s => {
-                batch.set(db.collection("students").doc(s.id), s);
+                batch.set(getCollectionRef("students").doc(s.id), s);
             });
 
             // Batch writes for Inventory
             state.inventory.forEach(i => {
-                batch.set(db.collection("inventory").doc(i.id), i);
+                batch.set(getCollectionRef("inventory").doc(i.id), i);
             });
 
             // Batch writes for Courses
             state.courses.forEach(c => {
-                batch.set(db.collection("courses").doc(c.name), c);
+                batch.set(getCollectionRef("courses").doc(c.name), c);
             });
 
             // Batch writes for Attendance logs
             Object.keys(state.attendance).forEach(d => {
-                batch.set(db.collection("attendance").doc(d), state.attendance[d]);
+                batch.set(getCollectionRef("attendance").doc(d), state.attendance[d]);
             });
 
             // Batch writes for Payroll registers
             Object.keys(state.payroll).forEach(m => {
-                batch.set(db.collection("payroll").doc(m), state.payroll[m]);
+                batch.set(getCollectionRef("payroll").doc(m), state.payroll[m]);
             });
 
             // Batch writes for Finance
             Object.keys(state.finance).forEach(m => {
-                batch.set(db.collection("finance").doc(m), state.finance[m]);
+                batch.set(getCollectionRef("finance").doc(m), state.finance[m]);
             });
 
             // Batch writes for Student Attendance
             Object.keys(state.studentAttendance || {}).forEach(d => {
-                batch.set(db.collection("studentAttendance").doc(d), state.studentAttendance[d]);
+                batch.set(getCollectionRef("studentAttendance").doc(d), state.studentAttendance[d]);
             });
 
             // Branding profile
-            batch.set(db.collection("branding").doc("current"), state.branding);
+            batch.set(getCollectionRef("branding").doc("current"), state.branding);
 
             // Audit Logs
-            batch.set(db.collection("logs").doc("current"), { logsList: state.logs });
+            batch.set(getCollectionRef("logs").doc("current"), { logsList: state.logs });
 
             // Security Passwords
             if (state.passwords) {
-                batch.set(db.collection("security").doc("passwords"), state.passwords);
+                batch.set(getCollectionRef("security").doc("passwords"), state.passwords);
             }
 
             batch.commit()
@@ -416,7 +450,7 @@
         document.dispatchEvent(new CustomEvent('activityLogged'));
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("logs").doc("current").set({ logsList: state.logs })
+            getCollectionRef("logs").doc("current").set({ logsList: state.logs })
                 .catch(err => console.error("Firestore logActivity error:", err));
         }
     };
@@ -427,7 +461,7 @@
         AuraStore.logActivity("System activity logs cleared.", "info");
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("logs").doc("current").set({ logsList: [] })
+            getCollectionRef("logs").doc("current").set({ logsList: [] })
                 .catch(err => console.error("Firestore clearLogs error:", err));
         }
     };
@@ -455,7 +489,7 @@
         AuraStore.logActivity("Institutional brand details updated.", "success");
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("branding").doc("current").set(state.branding)
+            getCollectionRef("branding").doc("current").set(state.branding)
                 .catch(err => console.error("Firestore branding update error:", err));
         }
     };
@@ -487,7 +521,7 @@
         AuraStore.logActivity(`Added staff member ${staffObj.name} (${staffObj.id})`, "success");
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("staff").doc(staffObj.id).set(staffObj)
+            getCollectionRef("staff").doc(staffObj.id).set(staffObj)
                 .catch(err => console.error("Firestore addStaff error:", err));
         }
 
@@ -513,7 +547,7 @@
         AuraStore.logActivity(`Updated info for ${state.staff[index].name} (${id})`, "info");
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("staff").doc(id).set(state.staff[index])
+            getCollectionRef("staff").doc(id).set(state.staff[index])
                 .catch(err => console.error("Firestore updateStaff error:", err));
         }
 
@@ -534,7 +568,7 @@
         AuraStore.logActivity(`Removed staff member ${name} (${id})`, "danger");
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("staff").doc(id).delete()
+            getCollectionRef("staff").doc(id).delete()
                 .catch(err => console.error("Firestore deleteStaff error:", err));
         }
     };
@@ -554,7 +588,7 @@
         AuraStore.logActivity(`Saved daily attendance sheet for ${dateStr}.`, "success");
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("attendance").doc(dateStr).set(records)
+            getCollectionRef("attendance").doc(dateStr).set(records)
                 .catch(err => console.error("Firestore saveDailyAttendance error:", err));
         }
     };
@@ -654,7 +688,7 @@
         AuraStore.logActivity(`Processed payroll calculations for month: ${key}`, "info");
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("payroll").doc(key).set(state.payroll[key])
+            getCollectionRef("payroll").doc(key).set(state.payroll[key])
                 .catch(err => console.error("Firestore calculatePayrollForMonth error:", err));
         }
 
@@ -690,7 +724,7 @@
         AuraStore.logActivity(`Updated salary adjustments for ${AuraStore.getStaffById(staffId).name} (${staffId}).`, "success");
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("payroll").doc(key).set(state.payroll[key])
+            getCollectionRef("payroll").doc(key).set(state.payroll[key])
                 .catch(err => console.error("Firestore updatePayrollAdjustment error:", err));
         }
     };
@@ -712,7 +746,7 @@
         AuraStore.logActivity(`Approved and finalized payroll registers for ${key}.`, "success");
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("payroll").doc(key).set(state.payroll[key])
+            getCollectionRef("payroll").doc(key).set(state.payroll[key])
                 .catch(err => console.error("Firestore approveAllPayroll error:", err));
         }
     };
@@ -764,17 +798,17 @@
     AuraStore.wipeAllData = function() {
         if (AuraStore.useFirebase && AuraStore.db) {
             const db = AuraStore.db;
-            state.staff.forEach(s => db.collection("staff").doc(s.id).delete().catch(e => console.error(e)));
-            state.students.forEach(s => db.collection("students").doc(s.id).delete().catch(e => console.error(e)));
-            state.inventory.forEach(i => db.collection("inventory").doc(i.id).delete().catch(e => console.error(e)));
-            state.courses.forEach(c => db.collection("courses").doc(c.name).delete().catch(e => console.error(e)));
-            Object.keys(state.attendance).forEach(d => db.collection("attendance").doc(d).delete().catch(e => console.error(e)));
-            Object.keys(state.payroll).forEach(k => db.collection("payroll").doc(k).delete().catch(e => console.error(e)));
-            Object.keys(state.finance).forEach(k => db.collection("finance").doc(k).delete().catch(e => console.error(e)));
-            Object.keys(state.studentAttendance || {}).forEach(d => db.collection("studentAttendance").doc(d).delete().catch(e => console.error(e)));
-            db.collection("branding").doc("current").set(DEFAULT_BRANDING).catch(e => console.error(e));
-            db.collection("logs").doc("current").set({ logsList: [] }).catch(e => console.error(e));
-            db.collection("security").doc("passwords").set({ admin: "admin123", clerk: "clerk123", faculty: "faculty123" }).catch(e => console.error(e));
+            state.staff.forEach(s => getCollectionRef("staff").doc(s.id).delete().catch(e => console.error(e)));
+            state.students.forEach(s => getCollectionRef("students").doc(s.id).delete().catch(e => console.error(e)));
+            state.inventory.forEach(i => getCollectionRef("inventory").doc(i.id).delete().catch(e => console.error(e)));
+            state.courses.forEach(c => getCollectionRef("courses").doc(c.name).delete().catch(e => console.error(e)));
+            Object.keys(state.attendance).forEach(d => getCollectionRef("attendance").doc(d).delete().catch(e => console.error(e)));
+            Object.keys(state.payroll).forEach(k => getCollectionRef("payroll").doc(k).delete().catch(e => console.error(e)));
+            Object.keys(state.finance).forEach(k => getCollectionRef("finance").doc(k).delete().catch(e => console.error(e)));
+            Object.keys(state.studentAttendance || {}).forEach(d => getCollectionRef("studentAttendance").doc(d).delete().catch(e => console.error(e)));
+            getCollectionRef("branding").doc("current").set(DEFAULT_BRANDING).catch(e => console.error(e));
+            getCollectionRef("logs").doc("current").set({ logsList: [] }).catch(e => console.error(e));
+            getCollectionRef("security").doc("passwords").set({ admin: "admin123", clerk: "clerk123", faculty: "faculty123" }).catch(e => console.error(e));
         }
 
         state = {
@@ -1070,7 +1104,7 @@
         AuraStore.logActivity(`Course ${courseObj.name} configured with price ₹${courseObj.price}`, "success");
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("courses").doc(courseObj.name).set(courseObj)
+            getCollectionRef("courses").doc(courseObj.name).set(courseObj)
                 .catch(err => console.error("Firestore addCourse error:", err));
         }
     };
@@ -1084,7 +1118,7 @@
             AuraStore.logActivity(`Removed course ${name}.`, "danger");
 
             if (AuraStore.useFirebase && AuraStore.db) {
-                AuraStore.db.collection("courses").doc(name).delete()
+                getCollectionRef("courses").doc(name).delete()
                     .catch(err => console.error("Firestore deleteCourse error:", err));
             }
         }
@@ -1121,7 +1155,7 @@
         AuraStore.logActivity(`Enrolled student ${studentObj.name} (${studentObj.id}) for ${studentObj.course}`, "success");
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("students").doc(studentObj.id).set(studentObj)
+            getCollectionRef("students").doc(studentObj.id).set(studentObj)
                 .catch(err => console.error("Firestore addStudent error:", err));
         }
 
@@ -1174,7 +1208,7 @@
         AuraStore.logActivity(`Updated details for student ${state.students[index].name} (${id})`, "info");
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("students").doc(id).set(state.students[index])
+            getCollectionRef("students").doc(id).set(state.students[index])
                 .catch(err => console.error("Firestore updateStudent error:", err));
         }
 
@@ -1191,7 +1225,7 @@
         AuraStore.logActivity(`Removed student ${name} (${id})`, "danger");
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("students").doc(id).delete()
+            getCollectionRef("students").doc(id).delete()
                 .catch(err => console.error("Firestore deleteStudent error:", err));
         }
     };
@@ -1215,7 +1249,7 @@
         AuraStore.logActivity(`Added inventory item ${itemObj.name} (${itemObj.id})`, "success");
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("inventory").doc(itemObj.id).set(itemObj)
+            getCollectionRef("inventory").doc(itemObj.id).set(itemObj)
                 .catch(err => console.error("Firestore addInventoryItem error:", err));
         }
 
@@ -1237,7 +1271,7 @@
         AuraStore.logActivity(`Updated inventory item ${state.inventory[index].name} (${id})`, "info");
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("inventory").doc(id).set(state.inventory[index])
+            getCollectionRef("inventory").doc(id).set(state.inventory[index])
                 .catch(err => console.error("Firestore updateInventoryItem error:", err));
         }
 
@@ -1254,7 +1288,7 @@
         AuraStore.logActivity(`Removed inventory item ${name} (${id})`, "danger");
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("inventory").doc(id).delete()
+            getCollectionRef("inventory").doc(id).delete()
                 .catch(err => console.error("Firestore deleteInventoryItem error:", err));
         }
     };
@@ -1299,7 +1333,13 @@
     AuraStore.logout = function() {
         sessionStorage.removeItem(SESSION_KEY);
         sessionStorage.removeItem(ROLE_KEY);
+        AuraStore.currentTenantId = null;
+        AuraStore.stopFirebaseListeners();
         AuraStore.logActivity("Session terminated.", "info");
+
+        if (AuraStore.useFirebase && typeof firebase !== "undefined" && firebase.auth) {
+            firebase.auth().signOut().catch(e => console.error("Signout error:", e));
+        }
     };
 
     AuraStore.getPasswords = function() {
@@ -1315,9 +1355,26 @@
         AuraStore.logActivity(`Changed password for role: ${role}`, "success");
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("security").doc("passwords").set(state.passwords)
+            getCollectionRef("security").doc("passwords").set(state.passwords)
                 .catch(err => console.error("Firestore security update error:", err));
         }
+    };
+
+    AuraStore.fetchUserProfile = async function(user) {
+        if (!AuraStore.db) return null;
+        const email = user.email;
+        let doc = await AuraStore.db.collection("users").doc(email).get();
+        if (doc.exists) return doc.data();
+        doc = await AuraStore.db.collection("users").doc(user.uid).get();
+        if (doc.exists) return doc.data();
+        return null;
+    };
+
+    AuraStore.fetchTenantConfig = async function(tenantId) {
+        if (!AuraStore.db || !tenantId) return null;
+        const doc = await AuraStore.db.collection("tenants").doc(tenantId).collection("config").doc("current").get();
+        if (doc.exists) return doc.data();
+        return null;
     };
 
     AuraStore.getMonthlyFinance = function(monthKey) {
@@ -1354,7 +1411,7 @@
         AuraStore.logActivity(`Saved financial expenses for ${monthKey}`, "success");
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("finance").doc(monthKey).set(state.finance[monthKey])
+            getCollectionRef("finance").doc(monthKey).set(state.finance[monthKey])
                 .catch(err => console.error("Firestore saveMonthlyFinance error:", err));
         }
     };
@@ -1375,7 +1432,7 @@
         AuraStore.logActivity(`Added other income ₹${item.amount} (${item.source}) for ${monthKey}`, "success");
         
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("finance").doc(monthKey).set(fin)
+            getCollectionRef("finance").doc(monthKey).set(fin)
                 .catch(err => console.error("Firestore addOtherIncome error:", err));
         }
         return fin;
@@ -1396,7 +1453,7 @@
             AuraStore.logActivity(`Deleted other income ₹${amount} (${source}) for ${monthKey}`, "warning");
             
             if (AuraStore.useFirebase && AuraStore.db) {
-                AuraStore.db.collection("finance").doc(monthKey).set(fin)
+                getCollectionRef("finance").doc(monthKey).set(fin)
                     .catch(err => console.error("Firestore deleteOtherIncome error:", err));
             }
         }
@@ -1419,7 +1476,7 @@
         AuraStore.logActivity(`Saved student attendance registers for ${dateStr}.`, "success");
 
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("studentAttendance").doc(dateStr).set(records)
+            getCollectionRef("studentAttendance").doc(dateStr).set(records)
                 .catch(err => console.error("Firestore saveStudentAttendance error:", err));
         }
     };
@@ -1448,7 +1505,7 @@
         AuraStore.logActivity(`Recorded payment of ₹${amount} for student ${student.name} (${studentId})`, "success");
         
         if (AuraStore.useFirebase && AuraStore.db) {
-            AuraStore.db.collection("students").doc(studentId).set(student)
+            getCollectionRef("students").doc(studentId).set(student)
                 .catch(err => console.error("Firestore recordStudentPayment error:", err));
         }
         
