@@ -28,7 +28,12 @@
         finance: {},    // 'YYYY-MM' => { lightBill, waterBill, otherExpenses, otherExpensesDetails, otherIncomeList }
         studentAttendance: {}, // 'YYYY-MM-DD' => { studentId: { status, remarks, lastUpdated } }
         branding: { ...DEFAULT_BRANDING },
-        logs: []
+        logs: [],
+        passwords: {
+            admin: "admin123",
+            clerk: "clerk123",
+            faculty: "faculty123"
+        }
     };
 
     // Keys for LocalStorage
@@ -208,6 +213,19 @@
             AuraStore.saveState();
             document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "student-attendance" } }));
         }, err => console.error("Firestore studentAttendance snapshot error:", err));
+
+        // 11. Security Listener
+        db.collection("security").doc("passwords").onSnapshot(doc => {
+            const isMigrated = localStorage.getItem("aurastaff_firebase_migrated") === "true";
+            if (!doc.exists && !isMigrated) {
+                console.log("Firestore security passwords doc is missing; guarding local passwords.");
+                return;
+            }
+            if (doc.exists) {
+                state.passwords = doc.data();
+                AuraStore.saveState();
+            }
+        }, err => console.error("Firestore security snapshot error:", err));
     }
 
     // Initialize Firebase SDK Connection
@@ -300,6 +318,11 @@
             // Audit Logs
             batch.set(db.collection("logs").doc("current"), { logsList: state.logs });
 
+            // Security Passwords
+            if (state.passwords) {
+                batch.set(db.collection("security").doc("passwords"), state.passwords);
+            }
+
             batch.commit()
                 .then(() => {
                     localStorage.setItem("aurastaff_firebase_migrated", "true");
@@ -338,7 +361,8 @@
                     finance: parsed.finance || {},
                     studentAttendance: parsed.studentAttendance || {},
                     branding: parsed.branding || { ...DEFAULT_BRANDING },
-                    logs: parsed.logs || []
+                    logs: parsed.logs || [],
+                    passwords: parsed.passwords || { admin: "admin123", clerk: "clerk123", faculty: "faculty123" }
                 };
             }
             
@@ -360,7 +384,8 @@
                 // We only save branding and logs.
                 const minimalState = {
                     branding: state.branding,
-                    logs: state.logs
+                    logs: state.logs,
+                    passwords: state.passwords
                 };
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(minimalState));
                 return;
@@ -749,6 +774,7 @@
             Object.keys(state.studentAttendance || {}).forEach(d => db.collection("studentAttendance").doc(d).delete().catch(e => console.error(e)));
             db.collection("branding").doc("current").set(DEFAULT_BRANDING).catch(e => console.error(e));
             db.collection("logs").doc("current").set({ logsList: [] }).catch(e => console.error(e));
+            db.collection("security").doc("passwords").set({ admin: "admin123", clerk: "clerk123", faculty: "faculty123" }).catch(e => console.error(e));
         }
 
         state = {
@@ -761,7 +787,8 @@
             finance: {},
             studentAttendance: {},
             branding: { ...DEFAULT_BRANDING },
-            logs: []
+            logs: [],
+            passwords: { admin: "admin123", clerk: "clerk123", faculty: "faculty123" }
         };
         AuraStore.saveState();
         AuraStore.logActivity("All databases reset and storage purged.", "warning");
@@ -1244,17 +1271,22 @@
     };
 
     AuraStore.login = function(username, password) {
-        if (username === "admin" && password === "admin123") {
+        const pwdObj = state.passwords || {
+            admin: "admin123",
+            clerk: "clerk123",
+            faculty: "faculty123"
+        };
+        if (username === "admin" && password === pwdObj.admin) {
             sessionStorage.setItem(SESSION_KEY, "true");
             sessionStorage.setItem(ROLE_KEY, "admin");
             AuraStore.logActivity("Administrator session authenticated.", "success");
             return true;
-        } else if (username === "clerk" && password === "clerk123") {
+        } else if (username === "clerk" && password === pwdObj.clerk) {
             sessionStorage.setItem(SESSION_KEY, "true");
             sessionStorage.setItem(ROLE_KEY, "staff");
             AuraStore.logActivity("Staff session authenticated.", "success");
             return true;
-        } else if (username === "faculty" && password === "faculty123") {
+        } else if (username === "faculty" && password === pwdObj.faculty) {
             sessionStorage.setItem(SESSION_KEY, "true");
             sessionStorage.setItem(ROLE_KEY, "faculty");
             AuraStore.logActivity("Faculty session authenticated.", "success");
@@ -1268,6 +1300,24 @@
         sessionStorage.removeItem(SESSION_KEY);
         sessionStorage.removeItem(ROLE_KEY);
         AuraStore.logActivity("Session terminated.", "info");
+    };
+
+    AuraStore.getPasswords = function() {
+        return state.passwords || { admin: "admin123", clerk: "clerk123", faculty: "faculty123" };
+    };
+
+    AuraStore.changePassword = function(role, newPassword) {
+        if (!state.passwords) {
+            state.passwords = { admin: "admin123", clerk: "clerk123", faculty: "faculty123" };
+        }
+        state.passwords[role] = newPassword;
+        AuraStore.saveState();
+        AuraStore.logActivity(`Changed password for role: ${role}`, "success");
+
+        if (AuraStore.useFirebase && AuraStore.db) {
+            AuraStore.db.collection("security").doc("passwords").set(state.passwords)
+                .catch(err => console.error("Firestore security update error:", err));
+        }
     };
 
     AuraStore.getMonthlyFinance = function(monthKey) {

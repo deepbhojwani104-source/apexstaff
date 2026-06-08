@@ -1360,6 +1360,58 @@ document.addEventListener("DOMContentLoaded", function() {
         $(".sidebar-brand h2").innerHTML = `${newBranding.name.split(" ")[0]}<span>Staff</span>`;
     });
 
+    // Password change form submit handler
+    $("#settings-password-form").addEventListener("submit", function(e) {
+        e.preventDefault();
+        
+        const role = $("#change-pwd-role").value;
+        const currentPwdInput = $("#change-pwd-current");
+        const newPwdInput = $("#change-pwd-new");
+        const confirmPwdInput = $("#change-pwd-confirm");
+        
+        const currentPwd = currentPwdInput.value;
+        const newPwd = newPwdInput.value;
+        const confirmPwd = confirmPwdInput.value;
+        
+        const pwdObj = AuraStore.getPasswords();
+        
+        // 1. Verify current admin password
+        if (currentPwd !== pwdObj.admin) {
+            AuraDOM.showToast("Verification failed: Current admin password is incorrect.", "error");
+            currentPwdInput.value = "";
+            currentPwdInput.focus();
+            return;
+        }
+        
+        // 2. Verify new passwords match
+        if (newPwd !== confirmPwd) {
+            AuraDOM.showToast("New passwords do not match.", "error");
+            confirmPwdInput.value = "";
+            confirmPwdInput.focus();
+            return;
+        }
+        
+        // 3. Verify password length
+        if (newPwd.length < 6) {
+            AuraDOM.showToast("Password must be at least 6 characters long.", "warning");
+            newPwdInput.focus();
+            return;
+        }
+        
+        // 4. Perform update
+        try {
+            AuraStore.changePassword(role, newPwd);
+            AuraDOM.showToast(`Password for ${role} updated successfully!`, "success");
+            
+            // Clear fields
+            currentPwdInput.value = "";
+            newPwdInput.value = "";
+            confirmPwdInput.value = "";
+        } catch (err) {
+            AuraDOM.showToast(err.message, "error");
+        }
+    });
+
     // Demo Database Seeder click
     $("#btn-load-demo").addEventListener("click", () => {
         if (confirm("This will populate your database with mock coaching staff records, attendance sheets, and payroll logs. Proceed?")) {

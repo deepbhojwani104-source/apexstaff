@@ -1433,6 +1433,47 @@
                             </div>
                         </div>
 
+                        <!-- Security & Passwords Settings -->
+                        <div class="glass-card settings-card">
+                            <div class="settings-card-header">
+                                <span class="material-symbols-outlined icon-box-settings">lock</span>
+                                <div>
+                                    <h3>Security Settings</h3>
+                                    <p>Update access passwords for system users.</p>
+                                </div>
+                            </div>
+                            <div class="settings-card-body">
+                                <form id="settings-password-form" style="display: flex; flex-direction: column; gap: 12px;">
+                                    <div class="form-group">
+                                        <label for="change-pwd-role">Select User Account</label>
+                                        <select id="change-pwd-role" style="width: 100%; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); outline: none;">
+                                            <option value="admin">Super Administrator (admin)</option>
+                                            <option value="clerk">Office Clerk (clerk)</option>
+                                            <option value="faculty">Faculty Member (faculty)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="change-pwd-current">Current Admin Password *</label>
+                                        <input type="password" id="change-pwd-current" placeholder="Enter current admin password" required style="width: 100%; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); outline: none;">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="change-pwd-new">New Password *</label>
+                                        <input type="password" id="change-pwd-new" placeholder="Enter new password" required style="width: 100%; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); outline: none;">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="change-pwd-confirm">Confirm New Password *</label>
+                                        <input type="password" id="change-pwd-confirm" placeholder="Confirm new password" required style="width: 100%; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); outline: none;">
+                                    </div>
+                                    <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                                        <button type="submit" class="btn btn-primary" style="display: flex; align-items: center; gap: 6px;">
+                                            <span class="material-symbols-outlined">key</span>
+                                            <span>Update Password</span>
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
                         <!-- Coaching Center Custom Branding Details -->
                         <div class="glass-card settings-card col-span-2">
                             <div class="settings-card-header">
