@@ -17,6 +17,11 @@
             const finalName = name === "branding" ? "config" : name;
             return AuraStore.db.collection("tenants").doc(AuraStore.currentTenantId).collection(finalName);
         }
+        // If Firebase mode is active, block root collection access to prevent pollution
+        if (AuraStore.useFirebase) {
+            console.warn(`Blocked root collection access for '${name}' because no tenant is active.`);
+            return null;
+        }
         return AuraStore.db.collection(name);
     }
     AuraStore.getCollectionRef = getCollectionRef;
@@ -61,7 +66,7 @@
     let activeUnsubscribes = [];
 
     AuraStore.startFirebaseListeners = function() {
-        if (!AuraStore.db) return;
+        if (!AuraStore.db || !AuraStore.currentTenantId) return;
         AuraStore.stopFirebaseListeners();
 
         // 1. Staff Listener
@@ -312,6 +317,10 @@
     AuraStore.uploadLocalToFirebase = function(callback) {
         if (!AuraStore.useFirebase || !AuraStore.db) {
             if (callback) callback("Firebase is not connected.");
+            return;
+        }
+        if (!AuraStore.currentTenantId) {
+            if (callback) callback("Cannot migrate data: No active tenant session. Please log in using your institute email first.");
             return;
         }
         const db = AuraStore.db;
