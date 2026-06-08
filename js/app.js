@@ -1818,14 +1818,17 @@ document.addEventListener("DOMContentLoaded", function() {
                 el.className = "sync-status-badge error";
                 if (icon) icon.textContent = "cloud_off";
                 if (text) text.textContent = "Disconnected";
+                el.title = AuraStore.firebaseInitError || "Disconnected: Operating in Local Offline Mode.";
             } else if (!navigator.onLine) {
                 el.className = "sync-status-badge syncing";
                 if (icon) icon.textContent = "cloud_queue";
                 if (text) text.textContent = "Offline Cache";
+                el.title = "Connected to local offline cache. Will sync when network is restored.";
             } else {
                 el.className = "sync-status-badge";
                 if (icon) icon.textContent = "cloud_done";
                 if (text) text.textContent = "Connected (Real-time)";
+                el.title = "Connected to Firebase Cloud Firestore database in real-time.";
             }
         };
 

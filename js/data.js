@@ -262,18 +262,24 @@
         activeUnsubscribes = [];
     };
 
-        // Initialize Firebase SDK Connection
+        AuraStore.firebaseInitError = null;
+
+    // Initialize Firebase SDK Connection
     AuraStore.initFirebase = function() {
         const configStr = localStorage.getItem("aurastaff_firebase_config");
         if (!configStr) {
             AuraStore.useFirebase = false;
             AuraStore.db = null;
+            AuraStore.firebaseInitError = "No Firebase configuration found. Please setup cloud connection.";
             return;
         }
 
         try {
             if (typeof firebase === 'undefined') {
                 console.warn("Firebase SDK script not loaded yet.");
+                AuraStore.firebaseInitError = "Firebase SDK script failed to load (check your network connection or adblocker).";
+                AuraStore.useFirebase = false;
+                AuraStore.db = null;
                 return;
             }
             const firebaseConfig = JSON.parse(configStr);
@@ -281,16 +287,22 @@
                 firebase.initializeApp(firebaseConfig);
             }
             const db = firebase.firestore();
-            db.enablePersistence({ synchronizeTabs: true }).catch(err => {
-                console.warn("Firestore persistence warning:", err.code);
-            });
+            try {
+                db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+                    console.warn("Firestore persistence warning:", err.code);
+                });
+            } catch (persistErr) {
+                console.warn("Firestore persistence synchronous error:", persistErr);
+            }
             AuraStore.db = db;
             AuraStore.useFirebase = true;
+            AuraStore.firebaseInitError = null;
             // Listeners started dynamically after login
             AuraStore.logActivity("Firebase connected successfully.", "success");
         } catch (e) {
             console.error("Firebase init failed:", e);
             AuraStore.logActivity("Firebase cloud connection failed.", "danger");
+            AuraStore.firebaseInitError = "Firebase Init Failed: " + (e.message || e);
             AuraStore.useFirebase = false;
             AuraStore.db = null;
         }
