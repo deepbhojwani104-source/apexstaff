@@ -262,6 +262,22 @@ document.addEventListener("DOMContentLoaded", function() {
         }
     });
 
+    // Change Firebase Config from login screen
+    const resetFirebaseLoginBtn = $("#btn-reset-firebase-login");
+    if (resetFirebaseLoginBtn) {
+        resetFirebaseLoginBtn.addEventListener("click", function(e) {
+            e.preventDefault();
+            if (confirm("Reset Firebase configuration parameters? This will return you to the cloud setup screen.")) {
+                localStorage.removeItem("aurastaff_firebase_config");
+                localStorage.removeItem("aurastaff_firebase_migrated");
+                AuraDOM.showToast("Firebase configuration cleared.", "warning");
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            }
+        });
+    }
+
     // Logout Button handler
     $("#btn-logout").addEventListener("click", function() {
         AuraStore.logout();
