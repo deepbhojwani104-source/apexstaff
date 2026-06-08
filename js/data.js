@@ -1697,4 +1697,55 @@
         return "Migration complete!";
     };
 
+    AuraStore.createTenant = async function(tenantId, adminEmail, name, theme = "#6366f1") {
+        if (!AuraStore.db) {
+            console.error("Firebase is not connected.");
+            return "Firebase is not connected.";
+        }
+        
+        tenantId = tenantId.toLowerCase().trim();
+        adminEmail = adminEmail.toLowerCase().trim();
+        
+        console.log(`Creating tenant config for '${tenantId}'...`);
+        const db = AuraStore.db;
+        
+        // 1. Create tenant config document
+        const configData = {
+            name: name || (tenantId.charAt(0).toUpperCase() + tenantId.slice(1) + " Coaching Institute"),
+            tagline: "Unlocking Academic Excellence",
+            email: adminEmail,
+            phone: "9876543210",
+            address: "Beawar",
+            theme: theme,
+            logo: "icons/logo.png"
+        };
+        
+        try {
+            await db.collection("tenants").doc(tenantId).collection("config").doc("current").set(configData);
+            console.log(`Successfully created tenant config for '${tenantId}' at /tenants/${tenantId}/config/current`);
+        } catch (err) {
+            console.error("Error creating tenant config:", err);
+            return `Error: ${err.message}`;
+        }
+        
+        // 2. Create user document
+        const userData = {
+            email: adminEmail,
+            role: "admin",
+            tenant_id: tenantId,
+            tenantId: tenantId
+        };
+        
+        try {
+            await db.collection("users").doc(adminEmail).set(userData);
+            console.log(`Successfully created user profile for '${adminEmail}' at /users/${adminEmail}`);
+        } catch (err) {
+            console.error("Error creating user profile:", err);
+            return `Error: ${err.message}`;
+        }
+        
+        console.log(`Tenant '${tenantId}' successfully configured! Please ensure you create the authentication account for '${adminEmail}' in your Firebase Auth Console.`);
+        return `Tenant '${tenantId}' successfully configured!`;
+    };
+
 })();
