@@ -7,6 +7,8 @@ document.addEventListener("DOMContentLoaded", function() {
     const $ = selector => document.querySelector(selector);
     const $$ = selector => document.querySelectorAll(selector);
 
+    let authListenerInitialized = false;
+
     // Initial state loading
     AuraStore.loadState();
 
@@ -19,7 +21,6 @@ document.addEventListener("DOMContentLoaded", function() {
     // ==========================================================================
     // 1. Session Auth Logic & Initialization
     // ==========================================================================
-    let authListenerInitialized = false;
 
     AuraStore.applyTenantUI = function(config) {
         if (!config) return;
