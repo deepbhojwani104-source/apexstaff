@@ -15,9 +15,9 @@
         if (!AuraStore.db) return null;
         if (AuraStore.currentTenantId) {
             const finalName = name === "branding" ? "config" : name;
-            return getCollectionRef("tenants").doc(AuraStore.currentTenantId).collection(finalName);
+            return AuraStore.db.collection("tenants").doc(AuraStore.currentTenantId).collection(finalName);
         }
-        return getCollectionRef(name);
+        return AuraStore.db.collection(name);
     }
     AuraStore.getCollectionRef = getCollectionRef;
 
