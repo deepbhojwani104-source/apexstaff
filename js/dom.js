@@ -1028,8 +1028,11 @@
                     let actionButtons = "";
                     if (role === "faculty") {
                         actionButtons = `
-                            <button class="btn btn-sm btn-print-receipt" data-id="${s.id}" title="Print Fee Receipt" style="padding: 4px 8px; background: var(--color-success); border-color: var(--color-success); color: white;">
+                            <button class="btn btn-sm btn-print-receipt" data-id="${s.id}" title="Print Fee Receipt" style="padding: 4px 8px; background: var(--color-success); border-color: var(--color-success); color: white; display:inline-flex; align-items:center; justify-content:center;">
                                 <span class="material-symbols-outlined" style="font-size:16px;">receipt</span>
+                            </button>
+                            <button class="btn btn-sm btn-message-parent" data-id="${s.id}" title="Send Message to Parent" style="padding: 4px 8px; background: rgba(37, 211, 102, 0.1); border-color: transparent; color: #25D366; display:inline-flex; align-items:center; justify-content:center;">
+                                <span class="material-symbols-outlined" style="font-size:16px;">chat</span>
                             </button>
                         `;
                     } else {
@@ -1040,6 +1043,9 @@
                             </button>
                             <button class="btn btn-sm btn-record-payment" data-id="${s.id}" title="Record Payment installment" style="padding: 4px 8px; background: rgba(79, 70, 229, 0.1); border-color: transparent; color: var(--color-primary); display:inline-flex; align-items:center; justify-content:center;" ${payBtnDisabled}>
                                 <span class="material-symbols-outlined" style="font-size:16px;">payments</span>
+                            </button>
+                            <button class="btn btn-sm btn-message-parent" data-id="${s.id}" title="Send Message to Parent" style="padding: 4px 8px; background: rgba(37, 211, 102, 0.1); border-color: transparent; color: #25D366; display:inline-flex; align-items:center; justify-content:center;">
+                                <span class="material-symbols-outlined" style="font-size:16px;">chat</span>
                             </button>
                             <button class="btn btn-outline btn-sm btn-edit-student" data-id="${s.id}" title="Edit details" style="display:inline-flex; align-items:center; justify-content:center;">
                                 <span class="material-symbols-outlined" style="font-size:16px;">edit</span>

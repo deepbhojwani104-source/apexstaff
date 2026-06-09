@@ -1198,6 +1198,24 @@ document.addEventListener("DOMContentLoaded", function() {
                 // Prompt printable receipt PDF immediately
                 if (savedStudent) {
                     AuraDOM.printFeeReceipt(savedStudent);
+                    
+                    // Auto-send WhatsApp message to parent
+                    const parentPhone = savedStudent.parentMobile || savedStudent.mobile || "";
+                    if (parentPhone) {
+                        const branding = AuraStore.getBranding();
+                        const instName = branding.name || "Samyak Computer Classes";
+                        const actionText = editId === "" ? "enrolled" : "updated profile";
+                        const message = `Dear Parent, your child ${savedStudent.name} has been ${actionText} for ${savedStudent.course} at ${instName}. Course fee: ₹${savedStudent.courseFee}, Received: ₹${savedStudent.amountReceived}, Dues: ₹${savedStudent.dueAmount}. Regards, ${instName}`;
+                        
+                        let formattedPhone = parentPhone.replace(/\D/g, '');
+                        if (formattedPhone.length === 10) {
+                            formattedPhone = "91" + formattedPhone;
+                        }
+                        const whatsappUrl = `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`;
+                        setTimeout(() => {
+                            window.open(whatsappUrl, '_blank');
+                        }, 1200);
+                    }
                 }
             } catch (err) {
                 AuraDOM.showToast(err.message, "error");
@@ -1260,6 +1278,37 @@ document.addEventListener("DOMContentLoaded", function() {
                 const student = students.find(s => s.id === id);
                 if (student) {
                     AuraDOM.printFeeReceipt(student);
+                }
+            }
+
+            const msgBtn = e.target.closest(".btn-message-parent");
+            if (msgBtn) {
+                const id = msgBtn.dataset.id;
+                const students = AuraStore.getStudents();
+                const student = students.find(s => s.id === id);
+                if (student) {
+                    const parentMobile = student.parentMobile || student.mobile || "";
+                    if (!parentMobile) {
+                        AuraDOM.showToast("No parent or student mobile number available.", "error");
+                        return;
+                    }
+                    const customText = prompt(`Enter the message/update to send to the parent of ${student.name}:`);
+                    if (customText === null) return; // cancelled
+                    if (customText.trim() === "") {
+                        AuraDOM.showToast("Message content cannot be empty.", "error");
+                        return;
+                    }
+                    const branding = AuraStore.getBranding();
+                    const instName = branding.name || "Samyak Computer Classes";
+                    const message = `Dear Parent, regarding your child ${student.name}: ${customText.trim()}. Regards, ${instName}`;
+                    
+                    let formattedPhone = parentMobile.replace(/\D/g, '');
+                    if (formattedPhone.length === 10) {
+                        formattedPhone = "91" + formattedPhone;
+                    }
+                    const whatsappUrl = `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`;
+                    window.open(whatsappUrl, '_blank');
+                    AuraStore.logActivity(`General WhatsApp message alert sent to parent of ${student.name}`, "info");
                 }
             }
 
@@ -2192,6 +2241,27 @@ document.addEventListener("DOMContentLoaded", function() {
                     
                     $("#modal-record-payment").classList.add("hide");
                     AuraDOM.showToast("Payment recorded successfully!", "success");
+                    
+                    // Auto-send WhatsApp message to parent
+                    const updatedStudent = AuraStore.getStudents().find(s => s.id === studentId);
+                    if (updatedStudent) {
+                        const parentPhone = updatedStudent.parentMobile || updatedStudent.mobile || "";
+                        if (parentPhone) {
+                            const branding = AuraStore.getBranding();
+                            const instName = branding.name || "Samyak Computer Classes";
+                            const remainingDue = Math.max(0, Number(updatedStudent.courseFee || 0) - Number(updatedStudent.amountReceived || 0));
+                            const message = `Dear Parent, we have successfully received a payment of ₹${amount} for your child ${updatedStudent.name}. Total amount received till date: ₹${updatedStudent.amountReceived}. Remaining balance due: ₹${remainingDue}. Regards, ${instName}`;
+                            
+                            let formattedPhone = parentPhone.replace(/\D/g, '');
+                            if (formattedPhone.length === 10) {
+                                formattedPhone = "91" + formattedPhone;
+                            }
+                            const whatsappUrl = `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(message)}`;
+                            setTimeout(() => {
+                                window.open(whatsappUrl, '_blank');
+                            }, 1000);
+                        }
+                    }
                     
                     // Refresh views
                     refreshStudents();
