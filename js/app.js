@@ -539,6 +539,17 @@ document.addEventListener("DOMContentLoaded", function() {
             bankIfsc: $("#staff-bank-ifsc").value.trim()
         };
 
+        if (staffObj.name === "" || staffObj.phone === "" || staffObj.joiningDate === "") {
+            AuraDOM.showToast("Please fill all mandatory fields (Name, Phone, Joining Date).", "error");
+            return;
+        }
+
+        const phoneRegex = /^[0-9]{10}$/;
+        if (!phoneRegex.test(staffObj.phone)) {
+            AuraDOM.showToast("Phone Number must be exactly 10 digits.", "error");
+            return;
+        }
+
         try {
             if (id === "") {
                 // ADD MODE
@@ -1118,6 +1129,16 @@ document.addEventListener("DOMContentLoaded", function() {
 
             if (name === "" || mobile === "" || parentMobile === "" || selectedCourses.length === 0 || !branch || isNaN(amountReceived) || amountReceived < 0 || !enrollmentDate) {
                 AuraDOM.showToast("Please fill all mandatory fields, select courses, enrollment date, and parent contact.", "error");
+                return;
+            }
+
+            const phoneRegex = /^[0-9]{10}$/;
+            if (!phoneRegex.test(mobile)) {
+                AuraDOM.showToast("Student Mobile No must be exactly 10 digits.", "error");
+                return;
+            }
+            if (!phoneRegex.test(parentMobile)) {
+                AuraDOM.showToast("Parent Mobile No must be exactly 10 digits.", "error");
                 return;
             }
 
@@ -2477,6 +2498,12 @@ document.addEventListener("DOMContentLoaded", function() {
                 
                 if (!/^[a-z0-9]+$/.test(tenantId)) {
                     AuraDOM.showToast("Tenant ID must contain only lowercase letters and numbers (no spaces).", "error");
+                    return;
+                }
+
+                const phoneRegex = /^[0-9]{10}$/;
+                if (!phoneRegex.test(mobile)) {
+                    AuraDOM.showToast("Contact Mobile must be exactly 10 digits.", "error");
                     return;
                 }
                 

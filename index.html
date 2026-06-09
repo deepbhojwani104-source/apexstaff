@@ -1645,7 +1645,7 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="sa-mobile">Contact Mobile *</label>
-                                    <input type="text" id="sa-mobile" placeholder="e.g. 9876543210" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); outline: none;">
+                                    <input type="tel" id="sa-mobile" placeholder="e.g. 9876543210" pattern="[0-9]{10}" required style="width: 100%; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); outline: none;">
                                 </div>
                             </div>
 
@@ -1755,7 +1755,7 @@
                     </div>
                     <div class="form-group">
                         <label for="staff-phone">Phone Number *</label>
-                        <input type="tel" id="staff-phone" required placeholder="e.g. 9876543210">
+                        <input type="tel" id="staff-phone" required pattern="[0-9]{10}" placeholder="e.g. 9876543210">
                     </div>
                     <div class="form-group">
                         <label for="staff-gender">Gender</label>
