@@ -846,6 +846,62 @@
             feeInput.value = totalFee;
         }
 
+        // Calculate Discount
+        const discountTypeEl = document.getElementById("student-discount-type");
+        const discountValueEl = document.getElementById("student-discount-value");
+        const discountAmountEl = document.getElementById("student-discount-amount");
+        const netFeeEl = document.getElementById("student-net-fee");
+
+        let discountType = "none";
+        let discountValue = 0;
+        if (discountTypeEl) discountType = discountTypeEl.value;
+        if (discountValueEl) discountValue = Number(discountValueEl.value) || 0;
+
+        // Validation for negative value
+        if (discountValue < 0) {
+            discountValue = 0;
+            if (discountValueEl) discountValueEl.value = 0;
+        }
+
+        if (discountType === "none") {
+            if (discountValueEl) {
+                discountValueEl.value = 0;
+                discountValueEl.disabled = true;
+                discountValueEl.placeholder = "N/A";
+            }
+            discountValue = 0;
+        } else {
+            if (discountValueEl) {
+                discountValueEl.disabled = false;
+                discountValueEl.placeholder = discountType === "percent" ? "e.g. 10" : "e.g. 1000";
+            }
+        }
+
+        let discountAmount = 0;
+        if (discountType === "percent") {
+            if (discountValue > 100) {
+                discountValue = 100;
+                if (discountValueEl) discountValueEl.value = 100;
+            }
+            discountAmount = Math.round((totalFee * discountValue) / 100);
+        } else if (discountType === "amount") {
+            discountAmount = discountValue;
+        }
+
+        // Ensure discount doesn't exceed total fee
+        if (discountAmount > totalFee) {
+            discountAmount = totalFee;
+        }
+
+        if (discountAmountEl) {
+            discountAmountEl.value = discountAmount;
+        }
+
+        const netFee = totalFee - discountAmount;
+        if (netFeeEl) {
+            netFeeEl.value = netFee;
+        }
+
         // Update Selected Courses Text in Dropdown
         const selectedTextSpan = document.getElementById("selected-courses-text");
         if (selectedTextSpan) {
@@ -858,7 +914,7 @@
         const dueAmountInput = document.getElementById("student-due-amount");
         if (dueAmountInput) {
             const amountReceived = Number(amountReceivedInput ? amountReceivedInput.value : 0) || 0;
-            const dueAmount = Math.max(0, totalFee - amountReceived);
+            const dueAmount = Math.max(0, netFee - amountReceived);
             dueAmountInput.value = dueAmount;
         }
     }
@@ -1000,7 +1056,14 @@
                         <td>${s.name || ''}</td>
                         <td>${s.mobile || '-'}</td>
                         <td><span class="node-dept-pill" style="white-space: normal; text-align: left;">${s.course || ''}</span></td>
-                        <td>₹${Number(s.courseFee || 0).toLocaleString('en-IN')}</td>
+                        <td>
+                            ₹${Number(s.courseFee || 0).toLocaleString('en-IN')}
+                            ${s.discountAmount && s.discountAmount > 0 ? `
+                                <div style="font-size: 10.5px; color: var(--text-muted); text-decoration: line-through; margin-top: 2px;">
+                                    ₹${Number(s.originalFee !== undefined ? s.originalFee : (Number(s.courseFee) + Number(s.discountAmount))).toLocaleString('en-IN')}
+                                </div>
+                            ` : ''}
+                        </td>
                         <td>₹${Number(s.amountReceived || 0).toLocaleString('en-IN')}</td>
                         <td>${dueDisplay}</td>
                         <td>${robustDateString(s.dueDate)}</td>
@@ -1118,6 +1181,7 @@
         };
 
         const dueAmt = Math.max(0, Number(student.courseFee || 0) - Number(student.amountReceived || 0));
+        const displayOrigFee = student.originalFee !== undefined ? student.originalFee : student.courseFee;
         const receiptNo = "REC-" + Date.now().toString().slice(-6);
         const receiptDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
         const dueDateDisplay = robustDateString(student.dueDate, { day: '2-digit', month: '2-digit', year: 'numeric' }, 'N/A');
@@ -1340,7 +1404,7 @@
                                         Fee Types: ${student.feeType ? student.feeType.join(', ') : 'Registration Fee'}
                                     </div>
                                 </td>
-                                <td style="text-align: right; font-weight: 500;">₹${Number(student.courseFee).toLocaleString('en-IN')}</td>
+                                <td style="text-align: right; font-weight: 500;">₹${Number(displayOrigFee).toLocaleString('en-IN')}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1348,8 +1412,18 @@
                     <div class="summary">
                         <div class="summary-row">
                             <span>Subtotal Fee</span>
+                            <span>₹${Number(displayOrigFee).toLocaleString('en-IN')}</span>
+                        </div>
+                        ${student.discountAmount && student.discountAmount > 0 ? `
+                        <div class="summary-row">
+                            <span>Discount (${student.discountType === 'percent' ? student.discountValue + '%' : 'Fixed'})</span>
+                            <span>-₹${Number(student.discountAmount).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div class="summary-row" style="font-weight: 600; border-top: 1px solid #e2e8f0; padding-top: 6px;">
+                            <span>Net Payable Fee</span>
                             <span>₹${Number(student.courseFee).toLocaleString('en-IN')}</span>
                         </div>
+                        ` : ''}
                         <div class="summary-row">
                             <span>Amount Received</span>
                             <span>₹${Number(student.amountReceived).toLocaleString('en-IN')}</span>
@@ -1424,7 +1498,14 @@
                     <td>${s.name || ''}</td>
                     <td>${s.mobile || '-'}</td>
                     <td><span class="node-dept-pill" style="white-space: normal; text-align: left;">${s.course || ''}</span></td>
-                    <td>₹${Number(s.courseFee || 0).toLocaleString('en-IN')}</td>
+                    <td>
+                        ₹${Number(s.courseFee || 0).toLocaleString('en-IN')}
+                        ${s.discountAmount && s.discountAmount > 0 ? `
+                            <div style="font-size: 10.5px; color: var(--text-muted); text-decoration: line-through; margin-top: 2px;">
+                                ₹${Number(s.originalFee !== undefined ? s.originalFee : (Number(s.courseFee) + Number(s.discountAmount))).toLocaleString('en-IN')}
+                            </div>
+                        ` : ''}
+                    </td>
                     <td>₹${Number(s.amountReceived || 0).toLocaleString('en-IN')}</td>
                     <td>${dueDisplay}</td>
                     <td>${robustDateString(s.dueDate)}</td>
@@ -1700,7 +1781,14 @@
                         <td>${s.name || ''}</td>
                         <td>${s.mobile || '-'}</td>
                         <td><span class="node-dept-pill" style="white-space: normal; text-align: left;">${s.course || ''}</span></td>
-                        <td>₹${Number(s.courseFee || 0).toLocaleString('en-IN')}</td>
+                        <td>
+                            ₹${Number(s.courseFee || 0).toLocaleString('en-IN')}
+                            ${s.discountAmount && s.discountAmount > 0 ? `
+                                <div style="font-size: 10.5px; color: var(--text-muted); text-decoration: line-through; margin-top: 2px;">
+                                    ₹${Number(s.originalFee !== undefined ? s.originalFee : (Number(s.courseFee) + Number(s.discountAmount))).toLocaleString('en-IN')}
+                                </div>
+                            ` : ''}
+                        </td>
                         <td>₹${Number(s.amountReceived || 0).toLocaleString('en-IN')}</td>
                         <td>${dueDisplay}</td>
                         <td>${robustDateString(s.dueDate)}</td>

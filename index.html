@@ -625,12 +625,34 @@
                                         <input type="number" id="student-course-fee" readonly class="input-readonly" value="0">
                                     </div>
                                     <div class="form-group">
-                                        <label for="student-due-amount">Due Amount (₹) *</label>
-                                        <input type="number" id="student-due-amount" readonly class="input-readonly" value="0">
+                                        <label for="student-discount-type">Discount Type</label>
+                                        <div class="filter-select">
+                                            <select id="student-discount-type">
+                                                <option value="none">None</option>
+                                                <option value="percent">Percentage (%)</option>
+                                                <option value="amount">Direct Amount (₹)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="student-discount-value">Discount Value</label>
+                                        <input type="number" id="student-discount-value" min="0" value="0" disabled placeholder="N/A">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="student-discount-amount">Discount Amount (₹)</label>
+                                        <input type="number" id="student-discount-amount" readonly class="input-readonly" value="0">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="student-net-fee">Net Course Fee (₹) *</label>
+                                        <input type="number" id="student-net-fee" readonly class="input-readonly" value="0">
                                     </div>
                                     <div class="form-group">
                                         <label for="student-amount-received">Amount Received (₹) *</label>
                                         <input type="number" id="student-amount-received" placeholder="e.g. 5000" min="0" required value="0">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="student-due-amount">Due Amount (₹) *</label>
+                                        <input type="number" id="student-due-amount" readonly class="input-readonly" value="0">
                                     </div>
                                     <div class="form-group">
                                         <label for="student-due-date">Due Date</label>

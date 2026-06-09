@@ -1058,9 +1058,27 @@ document.addEventListener("DOMContentLoaded", function() {
     const receivedInput = $("#student-amount-received");
     if (receivedInput) {
         receivedInput.addEventListener("input", function() {
-            const courseFee = Number($("#student-course-fee").value) || 0;
+            const netFee = Number($("#student-net-fee").value) || 0;
             const received = Number(this.value) || 0;
-            $("#student-due-amount").value = Math.max(0, courseFee - received);
+            $("#student-due-amount").value = Math.max(0, netFee - received);
+        });
+    }
+
+    // Auto-recalculate when discount inputs change
+    const discountTypeEl = $("#student-discount-type");
+    if (discountTypeEl) {
+        discountTypeEl.addEventListener("change", function() {
+            if (AuraDOM.recalculateTotalCourseFee) {
+                AuraDOM.recalculateTotalCourseFee();
+            }
+        });
+    }
+    const discountValueEl = $("#student-discount-value");
+    if (discountValueEl) {
+        discountValueEl.addEventListener("input", function() {
+            if (AuraDOM.recalculateTotalCourseFee) {
+                AuraDOM.recalculateTotalCourseFee();
+            }
         });
     }
 
@@ -1074,7 +1092,11 @@ document.addEventListener("DOMContentLoaded", function() {
             const mobile = $("#student-mobile").value.trim();
             const parentMobile = $("#student-parent-mobile").value.trim();
             const branch = $("#student-branch").value;
-            const courseFee = Number($("#student-course-fee").value);
+            const originalFee = Number($("#student-course-fee").value) || 0;
+            const discountType = $("#student-discount-type").value;
+            const discountValue = Number($("#student-discount-value").value) || 0;
+            const discountAmount = Number($("#student-discount-amount").value) || 0;
+            const courseFee = Number($("#student-net-fee").value) || 0;
             const amountReceived = Number($("#student-amount-received").value);
             const dueAmount = Number($("#student-due-amount").value);
             const dueDate = $("#student-due-date").value;
@@ -1110,6 +1132,10 @@ document.addEventListener("DOMContentLoaded", function() {
                 parentMobile,
                 course,
                 branch,
+                originalFee,
+                discountType,
+                discountValue,
+                discountAmount,
                 courseFee,
                 amountReceived,
                 dueAmount,
@@ -1166,6 +1192,15 @@ document.addEventListener("DOMContentLoaded", function() {
             cb.checked = false;
         });
         $("#student-course-fee").value = 0;
+        $("#student-discount-type").value = "none";
+        const discValEl = $("#student-discount-value");
+        if (discValEl) {
+            discValEl.value = 0;
+            discValEl.disabled = true;
+            discValEl.placeholder = "N/A";
+        }
+        $("#student-discount-amount").value = 0;
+        $("#student-net-fee").value = 0;
         $("#student-due-amount").value = 0;
         const todayStr = new Date().toISOString().split('T')[0];
         $("#student-enrollment-date").value = todayStr;
@@ -1230,7 +1265,18 @@ document.addEventListener("DOMContentLoaded", function() {
                     const parentMobileInput = $("#student-parent-mobile");
                     if (parentMobileInput) parentMobileInput.value = student.parentMobile || student.mobile || "";
                     $("#student-branch").value = student.branch;
-                    $("#student-course-fee").value = student.courseFee;
+                    const origFee = student.originalFee !== undefined ? student.originalFee : (student.courseFee || 0);
+                    $("#student-course-fee").value = origFee;
+                    const dType = student.discountType || "none";
+                    $("#student-discount-type").value = dType;
+                    const dValEl = $("#student-discount-value");
+                    if (dValEl) {
+                        dValEl.value = student.discountValue || 0;
+                        dValEl.disabled = dType === "none";
+                        dValEl.placeholder = dType === "none" ? "N/A" : (dType === "percent" ? "e.g. 10" : "e.g. 1000");
+                    }
+                    $("#student-discount-amount").value = student.discountAmount || 0;
+                    $("#student-net-fee").value = student.courseFee || 0;
                     $("#student-amount-received").value = student.amountReceived;
                     $("#student-due-amount").value = student.dueAmount || 0;
                     $("#student-due-date").value = student.dueDate || "";
