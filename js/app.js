@@ -1065,6 +1065,20 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
+    // Helper to strictly restrict inputs to 10 digits and numeric characters only
+    function restrictToTenDigits(selector) {
+        const input = $(selector);
+        if (input) {
+            input.addEventListener("input", function() {
+                this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10);
+            });
+        }
+    }
+    restrictToTenDigits("#student-mobile");
+    restrictToTenDigits("#student-parent-mobile");
+    restrictToTenDigits("#staff-phone");
+    restrictToTenDigits("#sa-mobile");
+
     // Auto-update dues pending on received input
     const receivedInput = $("#student-amount-received");
     if (receivedInput) {
