@@ -215,8 +215,21 @@
                 return;
             }
             if (doc.exists) {
-                state.branding = doc.data();
+                const data = doc.data();
+                if (data && data.active === false) {
+                    alert("Something went wrong. contact to administrator ");
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 500);
+                    return;
+                }
+                state.branding = data;
                 AuraStore.saveState();
+                
+                if (AuraStore.applyTenantUI) {
+                    AuraStore.applyTenantUI(state.branding);
+                }
+                
                 document.dispatchEvent(new CustomEvent('firebaseDataChanged', { detail: { view: "settings" } }));
                 const sidebarBrandH2 = document.querySelector(".sidebar-brand h2");
                 if (sidebarBrandH2 && state.branding && state.branding.name) {
@@ -1718,7 +1731,8 @@
             address: address || "Beawar",
             theme: theme,
             logo: logoBase64 || "icons/logo.png",
-            owner: owner || "Administrator"
+            owner: owner || "Administrator",
+            active: true
         };
         
         // 2. Create user document (store password so super admin can manage it)
@@ -1796,7 +1810,8 @@
                     theme: config ? (config.theme || "#6366f1") : "#6366f1",
                     logo: config ? (config.logo || "icons/logo.png") : "icons/logo.png",
                     address: config ? (config.address || "") : "",
-                    phone: config ? (config.phone || "") : ""
+                    phone: config ? (config.phone || "") : "",
+                    active: config ? (config.active !== false) : true
                 });
             }
             return list;
@@ -1882,10 +1897,24 @@
         }
     };
 
-    AuraStore.deleteTenant = async function(tenantId, adminEmail) {
+    AuraStore.toggleTenantStatus = async function(tenantId, active) {
         if (!AuraStore.db) return { success: false, message: "Firebase is not connected." };
         try {
             const db = AuraStore.db;
+            await db.collection("tenants").doc(tenantId).collection("config").doc("current").update({
+                active: active
+            });
+            return { success: true, message: `Tenant status updated to ${active ? 'Active' : 'Inactive'} successfully!` };
+        } catch (err) {
+            console.error("Error toggling tenant status:", err);
+            return { success: false, message: err.message };
+        }
+    };
+
+    AuraStore.deleteTenant = async function(tenantId, adminEmail) {
+        if (!AuraStore.db) return { success: false, message: "Firebase is not connected." };
+        try {
+            const db = firebase.firestore();
             // 1. Delete user profile
             await db.collection("users").doc(adminEmail).delete();
             // 2. Delete config

@@ -136,8 +136,15 @@ document.addEventListener("DOMContentLoaded", function() {
                     // Fetch user profile from /users/{email} or /users/{uid}
                     const profile = await AuraStore.fetchUserProfile(user);
                     if (profile) {
-                        const tenantId = profile.tenant_id || profile.tenantId;
+                        let tenantId = profile.tenant_id || profile.tenantId;
                         const role = profile.role || "staff";
+                        
+                        // Force samyak email to map to samyak tenant
+                        if (user.email && user.email.toLowerCase().trim() === "admin@samyak.com") {
+                            tenantId = "samyak";
+                            profile.tenant_id = "samyak";
+                            profile.tenantId = "samyak";
+                        }
                         
                         AuraStore.currentTenantId = tenantId;
                         sessionStorage.setItem("aurastaff_logged_in", "true");
@@ -162,6 +169,29 @@ document.addEventListener("DOMContentLoaded", function() {
                         
                         // Fetch tenant branding config
                         const config = await AuraStore.fetchTenantConfig(tenantId);
+                        
+                        // Check if tenant is deactivated
+                        if (config && config.active === false) {
+                            alert("Something went wrong. contact to administrator ");
+                            await firebase.auth().signOut();
+                            AuraStore.resetTenantUI();
+                            sessionStorage.removeItem("aurastaff_logged_in");
+                            sessionStorage.removeItem("aurastaff_user_role");
+                            AuraStore.currentTenantId = null;
+                            AuraStore.stopFirebaseListeners();
+                            
+                            $("#login-container").classList.remove("hide");
+                            $("#app-container").classList.add("hide");
+                            
+                            const btn = $("#login-form button[type='submit']");
+                            if (btn) {
+                                btn.disabled = false;
+                                btn.innerHTML = `<span>Sign In</span> <span class="material-symbols-outlined">arrow_forward</span>`;
+                            }
+                            if (loaderEl) loaderEl.remove();
+                            return;
+                        }
+                        
                         if (config) {
                             // Apply custom tenant branding and theme
                             AuraStore.applyTenantUI(config);
@@ -451,6 +481,9 @@ document.addEventListener("DOMContentLoaded", function() {
         const view = e.detail.view;
         if (currentView === view || (currentView === "dashboard" && view === "dashboard") || view === "all") {
             renderViewData(currentView);
+        }
+        if (view === "settings") {
+            applyRolePrivileges();
         }
         updateSyncStatusIndicator();
     });
@@ -2144,9 +2177,19 @@ document.addEventListener("DOMContentLoaded", function() {
             const uName = $(".user-name");
             const uRole = $(".user-role");
             if (role === "admin") {
-                if (avatar) avatar.textContent = "AD";
-                if (uName) uName.textContent = "Administrator";
-                if (uRole) uRole.textContent = "Super Admin";
+                const branding = AuraStore.getBranding() || {};
+                const ownerName = branding.owner || "Administrator";
+                const instName = branding.name || "Institute Admin";
+                
+                if (avatar) {
+                    avatar.textContent = ownerName.split(" ")
+                        .map(n => n.charAt(0))
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase() || "AD";
+                }
+                if (uName) uName.textContent = ownerName;
+                if (uRole) uRole.textContent = instName;
             } else {
                 if (avatar) avatar.textContent = "ST";
                 if (uName) uName.textContent = "Staff Member";
@@ -2883,6 +2926,32 @@ document.addEventListener("DOMContentLoaded", function() {
                         updatePwdBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;">vpn_key</span><span>Update Password</span>`;
                     }
                 }
+                
+                const toggleStatusBtn = e.target.closest(".btn-sa-toggle-status");
+                if (toggleStatusBtn) {
+                    const tenantId = toggleStatusBtn.dataset.tenant;
+                    const isActive = toggleStatusBtn.dataset.active === "true";
+                    const newStatus = !isActive;
+                    
+                    toggleStatusBtn.disabled = true;
+                    toggleStatusBtn.innerHTML = `<span class="material-symbols-outlined animated-spin" style="font-size:14px;">sync</span><span>Updating...</span>`;
+                    
+                    try {
+                        const res = await AuraStore.toggleTenantStatus(tenantId, newStatus);
+                        if (res.success) {
+                            AuraDOM.showToast(res.message, "success");
+                            refreshSuperAdminInstitutes();
+                        } else {
+                            AuraDOM.showToast(res.message, "error");
+                            toggleStatusBtn.disabled = false;
+                            toggleStatusBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;">${isActive ? 'block' : 'check_circle'}</span><span>${isActive ? 'Deactivate' : 'Activate'}</span>`;
+                        }
+                    } catch (err) {
+                        AuraDOM.showToast(err.message || err, "error");
+                        toggleStatusBtn.disabled = false;
+                        toggleStatusBtn.innerHTML = `<span class="material-symbols-outlined" style="font-size:14px;">${isActive ? 'block' : 'check_circle'}</span><span>${isActive ? 'Deactivate' : 'Activate'}</span>`;
+                    }
+                }
             });
         }
         
@@ -2959,11 +3028,21 @@ document.addEventListener("DOMContentLoaded", function() {
                         </div>
                         <div>
                             <h4 style="margin:0; font-size:15px; font-weight:700; color:var(--text-primary);">${inst.name}</h4>
-                            <span class="sync-status-badge" style="margin:2px 0 0 0; padding:2px 6px; font-size:9.5px; border-radius:4px; font-weight:700; color:${inst.theme}; background:rgba(${hexToRgb(inst.theme)}, 0.1); border:1px solid rgba(${hexToRgb(inst.theme)}, 0.25);">ID: ${inst.tenantId}</span>
+                            <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
+                                <span class="sync-status-badge" style="padding:2px 6px; font-size:9.5px; border-radius:4px; font-weight:700; color:${inst.theme}; background:rgba(${hexToRgb(inst.theme)}, 0.1); border:1px solid rgba(${hexToRgb(inst.theme)}, 0.25);">ID: ${inst.tenantId}</span>
+                                <span class="sync-status-badge ${inst.active !== false ? 'success' : 'error'}" style="padding:2px 6px; font-size:9.5px; border-radius:4px; font-weight:700; display:inline-flex; align-items:center; gap:2px;">
+                                    <span class="material-symbols-outlined" style="font-size:10px;">${inst.active !== false ? 'check_circle' : 'cancel'}</span>
+                                    <span>${inst.active !== false ? 'Active' : 'Deactivated'}</span>
+                                </span>
+                            </div>
                         </div>
                     </div>
                     
                     <div style="display:flex; gap:6px;">
+                        <button class="btn btn-outline btn-sa-toggle-status" data-tenant="${inst.tenantId}" data-active="${inst.active !== false}" style="height: 30px; padding: 0 10px; font-size: 11px; display:flex; align-items:center; gap:4px; border-color:${inst.active !== false ? 'var(--color-danger)' : 'var(--color-success)'}; color:${inst.active !== false ? 'var(--color-danger)' : 'var(--color-success)'};">
+                            <span class="material-symbols-outlined" style="font-size:14px;">${inst.active !== false ? 'block' : 'check_circle'}</span>
+                            <span>${inst.active !== false ? 'Deactivate' : 'Activate'}</span>
+                        </button>
                         <button class="btn btn-outline btn-sa-edit-inst" data-tenant="${inst.tenantId}" style="height: 30px; padding: 0 10px; font-size: 11px; display:flex; align-items:center; gap:4px;">
                             <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
                             <span>Edit</span>
