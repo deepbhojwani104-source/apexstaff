@@ -1000,17 +1000,17 @@
 
         // 3. Render Student list table
         const role = AuraStore.getUserRole();
-        const priceMaster = document.querySelector("#view-students .settings-grid > div:nth-child(1)");
-        const regForm = document.querySelector("#view-students .settings-grid > div:nth-child(2)");
-        const listCard = document.querySelector("#view-students .settings-grid > div:nth-child(3)");
+        const regForm = $("#card-student-registration");
+        const listCard = $("#card-student-list");
+        const btnOpenCourse = $("#btn-open-course-master");
         
         if (role === "faculty") {
-            if (priceMaster) priceMaster.style.display = "none";
             if (regForm) regForm.style.display = "none";
+            if (btnOpenCourse) btnOpenCourse.style.display = "none";
             if (listCard) listCard.className = "glass-card settings-card col-span-2";
         } else {
-            if (priceMaster) priceMaster.style.display = "";
             if (regForm) regForm.style.display = "";
+            if (btnOpenCourse) btnOpenCourse.style.display = "flex";
             if (listCard) listCard.className = "glass-card settings-card col-span-2";
         }
 
