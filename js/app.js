@@ -8,9 +8,37 @@ document.addEventListener("DOMContentLoaded", function() {
     const $$ = selector => document.querySelectorAll(selector);
 
     let authListenerInitialized = false;
+    let inactivityTimeout = null;
+    const INACTIVITY_TIME = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+    function resetInactivityTimer() {
+        if (inactivityTimeout) {
+            clearTimeout(inactivityTimeout);
+        }
+        if (AuraStore.isLoggedIn()) {
+            inactivityTimeout = setTimeout(handleInactivityLogout, INACTIVITY_TIME);
+        }
+    }
+
+    function handleInactivityLogout() {
+        AuraStore.logout();
+        AuraDOM.showToast("You have been logged out due to inactivity.", "warning");
+        setTimeout(() => {
+            window.location.reload();
+        }, 1000);
+    }
+
+    function startInactivityTracker() {
+        const events = ["mousemove", "mousedown", "keypress", "scroll", "touchstart", "click"];
+        events.forEach(evt => {
+            document.addEventListener(evt, resetInactivityTimer, true);
+        });
+        resetInactivityTimer();
+    }
 
     // Initial state loading
     AuraStore.loadState();
+    startInactivityTracker();
 
     if (AuraStore.useFirebase) {
         initFirebaseObserver();
@@ -127,7 +155,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             if (errorBlock) errorBlock.classList.add("hide");
                             
                             initSuperAdmin();
-                            
+                            resetInactivityTimer();
                             if (loaderEl) loaderEl.remove();
                             return;
                         }
@@ -156,6 +184,7 @@ document.addEventListener("DOMContentLoaded", function() {
                         if (errorBlock) errorBlock.classList.add("hide");
                         
                         initApp();
+                        resetInactivityTimer();
                     } else {
                         console.error("Firestore user profile document not found for user:", user.email);
                         const errorBlock = $("#login-error");
@@ -185,6 +214,10 @@ document.addEventListener("DOMContentLoaded", function() {
                 
                 $("#login-container").classList.remove("hide");
                 $("#app-container").classList.add("hide");
+                if (inactivityTimeout) {
+                    clearTimeout(inactivityTimeout);
+                    inactivityTimeout = null;
+                }
             }
 
             // Remove startup loader once state is resolved
@@ -220,16 +253,22 @@ document.addEventListener("DOMContentLoaded", function() {
                 $("#app-container").classList.add("hide");
                 $("#superadmin-container").classList.remove("hide");
                 initSuperAdmin();
+                resetInactivityTimer();
                 return;
             }
             $("#login-container").classList.add("hide");
             $("#app-container").classList.remove("hide");
             $("#superadmin-container").classList.add("hide");
             initApp();
+            resetInactivityTimer();
         } else {
             $("#login-container").classList.remove("hide");
             $("#app-container").classList.add("hide");
             $("#superadmin-container").classList.add("hide");
+            if (inactivityTimeout) {
+                clearTimeout(inactivityTimeout);
+                inactivityTimeout = null;
+            }
         }
     }
 
