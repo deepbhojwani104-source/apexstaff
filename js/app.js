@@ -93,16 +93,16 @@ document.addEventListener("DOMContentLoaded", function() {
     AuraStore.resetTenantUI = function() {
         // Revert logos to default
         document.querySelectorAll('.brand-logo-img').forEach(img => {
-            img.src = "icons/logo.png";
+            img.src = "icons/logo.jpg";
         });
         
         // Revert text to default
         document.querySelectorAll('.logo-box h2, .sidebar-brand h2').forEach(el => {
-            el.innerHTML = `Aura<span>Staff</span>`;
+            el.innerHTML = `Smart <span>Office</span>`;
         });
         
         // Revert page title
-        document.title = "AuraStaff - Management Portal";
+        document.title = "Smart Office - Management Portal";
         
         // Revert theme colors
         document.documentElement.style.setProperty('--color-primary', '#6366f1');
@@ -2568,8 +2568,8 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     window.addEventListener("appinstalled", (evt) => {
-        console.log("ApexStaff was installed successfully!");
-        AuraDOM.showToast("ApexStaff successfully installed on your desktop!", "success");
+        console.log("Smart Office was installed successfully!");
+        AuraDOM.showToast("Smart Office successfully installed on your desktop!", "success");
         if (installRow) installRow.classList.add("hide");
         if (installedRow) installedRow.classList.remove("hide");
     });
@@ -2583,6 +2583,8 @@ document.addEventListener("DOMContentLoaded", function() {
         superAdminInitialized = true;
         
         console.log("Initializing Super Admin Dashboard controller...");
+        
+        let editModeTenantId = null;
         
         // 1. Date display
         const dateEl = $("#superadmin-header-date");
@@ -2637,6 +2639,101 @@ document.addEventListener("DOMContentLoaded", function() {
             });
         }
         
+        function setFormMode(mode, tenantData = null) {
+            const formIcon = $("#sa-form-icon");
+            const formTitle = $("#sa-form-title");
+            const formDesc = $("#sa-form-desc");
+            const submitBtn = $("#sa-submit-btn");
+            const cancelBtn = $("#btn-sa-cancel");
+            const tenantInput = $("#sa-tenant-id");
+            const emailInput = $("#sa-admin-email");
+            const pwdInput = $("#sa-admin-password");
+
+            if (mode === "edit") {
+                editModeTenantId = tenantData.tenantId;
+                
+                if (formIcon) {
+                    formIcon.textContent = "edit";
+                    formIcon.style.color = "var(--color-info)";
+                }
+                if (formTitle) formTitle.textContent = "Edit Coaching Institute";
+                if (formDesc) formDesc.textContent = "Modify institute parameters.";
+                
+                if (submitBtn) {
+                    submitBtn.innerHTML = `<span class="material-symbols-outlined">save</span><span>Update Institute Details</span>`;
+                }
+                if (cancelBtn) cancelBtn.classList.remove("hide");
+                
+                if (tenantInput) {
+                    tenantInput.value = tenantData.tenantId;
+                    tenantInput.readOnly = true;
+                }
+                if (emailInput) {
+                    emailInput.value = tenantData.email;
+                    emailInput.readOnly = true;
+                }
+                if (pwdInput) {
+                    pwdInput.disabled = true;
+                    pwdInput.required = false;
+                    pwdInput.value = "";
+                    pwdInput.placeholder = "Use card actions to change password";
+                }
+                
+                $("#sa-inst-name").value = tenantData.name;
+                $("#sa-owner-name").value = tenantData.owner;
+                $("#sa-mobile").value = tenantData.phone;
+                $("#sa-address").value = tenantData.address;
+                $("#sa-theme").value = tenantData.theme;
+                $("#sa-theme-text").value = tenantData.theme;
+                
+                const preview = $("#sa-logo-preview");
+                if (preview) preview.src = tenantData.logo || "icons/logo.jpg";
+                saLogoBase64 = null;
+            } else {
+                editModeTenantId = null;
+                
+                if (formIcon) {
+                    formIcon.textContent = "add_business";
+                    formIcon.style.color = "var(--color-primary)";
+                }
+                if (formTitle) formTitle.textContent = "Register New Institute";
+                if (formDesc) formDesc.textContent = "Configure tenant ID and admin credentials.";
+                
+                if (submitBtn) {
+                    submitBtn.innerHTML = `<span class="material-symbols-outlined">domain_add</span><span>Create Institute & Admin User</span>`;
+                }
+                if (cancelBtn) cancelBtn.classList.add("hide");
+                
+                if (tenantInput) {
+                    tenantInput.value = "";
+                    tenantInput.readOnly = false;
+                }
+                if (emailInput) {
+                    emailInput.value = "";
+                    emailInput.readOnly = false;
+                }
+                if (pwdInput) {
+                    pwdInput.disabled = false;
+                    pwdInput.required = true;
+                    pwdInput.value = "";
+                    pwdInput.placeholder = "e.g. password123";
+                }
+                
+                saForm.reset();
+                const preview = $("#sa-logo-preview");
+                if (preview) preview.src = "icons/logo.jpg";
+                saLogoBase64 = null;
+            }
+        }
+
+        // Cancel edit mode button
+        const cancelBtn = $("#btn-sa-cancel");
+        if (cancelBtn) {
+            cancelBtn.addEventListener("click", function() {
+                setFormMode("create");
+            });
+        }
+        
         // 5. Create institute form submission
         const saForm = $("#superadmin-create-form");
         if (saForm) {
@@ -2663,24 +2760,34 @@ document.addEventListener("DOMContentLoaded", function() {
                     return;
                 }
                 
-                if (password.length < 6) {
-                    AuraDOM.showToast("Admin login password must be at least 6 characters.", "error");
-                    return;
+                if (editModeTenantId === null) {
+                    if (password.length < 6) {
+                        AuraDOM.showToast("Admin login password must be at least 6 characters.", "error");
+                        return;
+                    }
                 }
                 
-                const submitBtn = saForm.querySelector("button[type='submit']");
+                const submitBtn = $("#sa-submit-btn");
                 submitBtn.disabled = true;
                 const oldHTML = submitBtn.innerHTML;
-                submitBtn.innerHTML = `<span class="material-symbols-outlined animated-spin" style="font-size:18px;">sync</span><span>Configuring Tenant...</span>`;
+                
+                if (editModeTenantId !== null) {
+                    submitBtn.innerHTML = `<span class="material-symbols-outlined animated-spin" style="font-size:18px;">sync</span><span>Updating Tenant...</span>`;
+                } else {
+                    submitBtn.innerHTML = `<span class="material-symbols-outlined animated-spin" style="font-size:18px;">sync</span><span>Configuring Tenant...</span>`;
+                }
                 
                 try {
-                    const res = await AuraStore.createTenant(tenantId, email, name, theme, owner, mobile, address, password, saLogoBase64);
+                    let res;
+                    if (editModeTenantId !== null) {
+                        res = await AuraStore.updateTenantDetails(editModeTenantId, email, name, theme, owner, mobile, address, saLogoBase64);
+                    } else {
+                        res = await AuraStore.createTenant(tenantId, email, name, theme, owner, mobile, address, password, saLogoBase64);
+                    }
+                    
                     if (res.success) {
                         AuraDOM.showToast(res.message, "success");
-                        saForm.reset();
-                        saLogoBase64 = null;
-                        const preview = $("#sa-logo-preview");
-                        if (preview) preview.src = "icons/logo.png";
+                        setFormMode("create");
                         refreshSuperAdminInstitutes();
                     } else {
                         AuraDOM.showToast(res.message, "error");
@@ -2700,12 +2807,23 @@ document.addEventListener("DOMContentLoaded", function() {
             searchInput.addEventListener("input", refreshSuperAdminInstitutes);
         }
         
-        // 7. Bind Action Buttons (Delete & Update Password)
+        // 7. Bind Action Buttons (Edit, Delete & Update Password)
         const saList = $("#sa-institutes-list");
         if (saList) {
             saList.addEventListener("click", async function(e) {
+                const editBtn = e.target.closest(".btn-sa-edit-inst");
                 const deleteBtn = e.target.closest(".btn-sa-delete-inst");
                 const updatePwdBtn = e.target.closest(".btn-sa-update-pwd");
+                
+                if (editBtn) {
+                    const tenantId = editBtn.dataset.tenant;
+                    const institutes = await AuraStore.getRegisteredInstitutes();
+                    const inst = institutes.find(i => i.tenantId === tenantId);
+                    if (inst) {
+                        setFormMode("edit", inst);
+                        if (saForm) saForm.scrollIntoView({ behavior: 'smooth' });
+                    }
+                }
                 
                 if (deleteBtn) {
                     const tenantId = deleteBtn.dataset.tenant;
@@ -2717,6 +2835,9 @@ document.addEventListener("DOMContentLoaded", function() {
                             const res = await AuraStore.deleteTenant(tenantId, email);
                             if (res.success) {
                                 AuraDOM.showToast(res.message, "success");
+                                if (editModeTenantId === tenantId) {
+                                    setFormMode("create");
+                                }
                                 refreshSuperAdminInstitutes();
                             } else {
                                 AuraDOM.showToast(res.message, "error");
@@ -2842,10 +2963,16 @@ document.addEventListener("DOMContentLoaded", function() {
                         </div>
                     </div>
                     
-                    <button class="btn btn-danger btn-sa-delete-inst" data-tenant="${inst.tenantId}" data-email="${inst.email}" style="height: 30px; padding: 0 10px; font-size: 11px; display:flex; align-items:center; gap:4px;">
-                        <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
-                        <span>Remove</span>
-                    </button>
+                    <div style="display:flex; gap:6px;">
+                        <button class="btn btn-outline btn-sa-edit-inst" data-tenant="${inst.tenantId}" style="height: 30px; padding: 0 10px; font-size: 11px; display:flex; align-items:center; gap:4px;">
+                            <span class="material-symbols-outlined" style="font-size:14px;">edit</span>
+                            <span>Edit</span>
+                        </button>
+                        <button class="btn btn-danger btn-sa-delete-inst" data-tenant="${inst.tenantId}" data-email="${inst.email}" style="height: 30px; padding: 0 10px; font-size: 11px; display:flex; align-items:center; gap:4px;">
+                            <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
+                            <span>Remove</span>
+                        </button>
+                    </div>
                 </div>
                 
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px 15px; font-size:12.5px; border-top:1px solid var(--color-border); border-bottom:1px solid var(--color-border); padding:10px 0; margin-top:5px; color:var(--text-secondary);">

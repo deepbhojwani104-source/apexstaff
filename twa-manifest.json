@@ -1,8 +1,8 @@
 {
   "packageId": "com.deepbhojwani104.apexstaff",
   "host": "deepbhojwani104-source.github.io",
-  "name": "ApexStaff",
-  "launcherName": "ApexStaff",
+  "name": "SmartOffice",
+  "launcherName": "SmartOffice",
   "display": "standalone",
   "themeColor": "#F4F5FA",
   "themeColorDark": "#000000",
@@ -20,8 +20,8 @@
     "path": "android.keystore",
     "alias": "android-alias"
   },
-  "appVersionName": "2",
-  "appVersionCode": 2,
+  "appVersionName": "4",
+  "appVersionCode": 4,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://deepbhojwani104-source.github.io/apexstaff/manifest.json",
@@ -43,5 +43,5 @@
   "fileHandlers": [],
   "launchHandlerClientMode": "",
   "displayOverride": [],
-  "appVersion": "2"
+  "appVersion": "4"
 }
