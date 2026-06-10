@@ -280,9 +280,12 @@
                         <span>${emp.email}</span>
                     </div>
                 </div>
-                <div class="node-actions">
+                <div class="node-actions" style="gap: 6px; display: flex;">
                     <button class="btn btn-secondary btn-sm btn-view-profile" data-id="${emp.id}">Profile</button>
                     <button class="btn btn-outline btn-sm btn-edit-staff" data-id="${emp.id}">Edit</button>
+                    <button class="btn btn-danger btn-sm btn-delete-staff" data-id="${emp.id}" style="padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; height: 31px;" title="Delete Staff">
+                        <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+                    </button>
                 </div>
             `;
             gridContainer.appendChild(card);

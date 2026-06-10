@@ -622,6 +622,7 @@ document.addEventListener("DOMContentLoaded", function() {
     $("#staff-directory-grid").addEventListener("click", function(e) {
         const editBtn = e.target.closest(".btn-edit-staff");
         const profileBtn = e.target.closest(".btn-view-profile");
+        const deleteBtn = e.target.closest(".btn-delete-staff");
 
         if (editBtn) {
             const staffId = editBtn.dataset.id;
@@ -661,6 +662,23 @@ document.addEventListener("DOMContentLoaded", function() {
             const staffId = profileBtn.dataset.id;
             AuraDOM.renderStaffDetailModal(staffId);
             $("#modal-staff-detail").classList.remove("hide");
+        }
+
+        if (deleteBtn) {
+            const staffId = deleteBtn.dataset.id;
+            const emp = AuraStore.getStaffById(staffId);
+            if (emp) {
+                if (confirm(`Are you sure you want to delete staff member ${emp.name} (${staffId})?`)) {
+                    try {
+                        AuraStore.deleteStaff(staffId);
+                        AuraDOM.showToast(`Deleted staff profile for ${emp.name}`, "info");
+                        refreshDirectory();
+                        AuraDOM.renderDashboard();
+                    } catch (err) {
+                        AuraDOM.showToast(err.message, "error");
+                    }
+                }
+            }
         }
     });
 
