@@ -536,12 +536,18 @@
                         
                         <!-- Student Registration Form -->
                         <div class="glass-card settings-card col-span-2">
-                            <div class="settings-card-header">
-                                <span class="material-symbols-outlined icon-box-settings">how_to_reg</span>
-                                <div>
-                                    <h3>Student Registration Form</h3>
-                                    <p>Register new student details and record fee collections.</p>
+                            <div class="settings-card-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 10px;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <span class="material-symbols-outlined icon-box-settings">how_to_reg</span>
+                                    <div>
+                                        <h3>Student Registration Form</h3>
+                                        <p>Register new student details and record fee collections.</p>
+                                    </div>
                                 </div>
+                                <button type="button" id="btn-open-course-master" class="btn btn-outline btn-sm" style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12.5px;">
+                                    <span class="material-symbols-outlined" style="font-size: 16px;">menu_book</span>
+                                    <span>Course Fee Master</span>
+                                </button>
                             </div>
                             <div class="settings-card-body">
                                 <form id="student-enrollment-form" class="grid-form">
@@ -567,10 +573,7 @@
                                         </div>
                                     </div>
                                     <div class="form-group col-span-2">
-                                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                                            <label style="margin: 0; display: flex; align-items: center; gap: 6px;">Enrolled Courses (Select Multiple) *</label>
-                                            <span class="material-symbols-outlined" id="btn-open-course-master" style="cursor: pointer; font-size: 18px; color: var(--color-primary); transition: transform 0.2s ease-in-out;" title="Configure Course Prices">settings</span>
-                                        </div>
+                                        <label style="margin-bottom: 8px;">Enrolled Courses (Select Multiple) *</label>
                                         <div class="custom-multiselect" id="student-courses-dropdown-container" style="position: relative;">
                                             <div class="multiselect-select-box" id="student-courses-select-box" style="display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--color-border); padding: 10px 14px; border-radius: var(--radius-sm); background: var(--bg-input); cursor: pointer; user-select: none;">
                                                 <span id="selected-courses-text" style="color: var(--text-secondary); font-size: 13.5px;">Select Courses...</span>
