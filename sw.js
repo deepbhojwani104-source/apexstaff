@@ -1,4 +1,4 @@
-const CACHE_NAME = "apexstaff-v30";
+const CACHE_NAME = "apexstaff-v31";
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",

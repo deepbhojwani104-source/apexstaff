@@ -1105,6 +1105,14 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
+    // Open Course Master Modal click
+    const btnOpenCourse = $("#btn-open-course-master");
+    if (btnOpenCourse) {
+        btnOpenCourse.addEventListener("click", function() {
+            $("#modal-course-master").classList.remove("hide");
+        });
+    }
+
     // Toggle student courses dropdown list visibility on click
     const selectBox = $("#student-courses-select-box");
     const dropdownList = $("#student-courses-dropdown-list");
@@ -2259,6 +2267,13 @@ document.addEventListener("DOMContentLoaded", function() {
         document.addEventListener("keydown", function(e) {
             if (e.key === "Escape") {
                 $$(".modal-overlay").forEach(modal => modal.classList.add("hide"));
+            }
+        });
+
+        // Close modal when clicking outside modal-card (on modal-overlay)
+        document.addEventListener("click", function(e) {
+            if (e.target.classList.contains("modal-overlay")) {
+                e.target.classList.add("hide");
             }
         });
         
