@@ -2260,7 +2260,7 @@ document.addEventListener("DOMContentLoaded", function() {
         if (selectRole) {
             selectRole.innerHTML = "";
             if (role === "admin") {
-                selectRole.innerHTML = `<option value="admin">Super Administrator (admin)</option>`;
+                selectRole.innerHTML = `<option value="admin">Coaching Administrator (admin)</option>`;
                 if (currentPwdLabel) currentPwdLabel.textContent = "Current Admin Password *";
                 if (currentPwdInput) currentPwdInput.placeholder = "Enter current admin password";
             } else if (role === "staff") {
