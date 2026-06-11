@@ -1819,12 +1819,14 @@ document.addEventListener("DOMContentLoaded", function() {
     $("#settings-branding-form").addEventListener("submit", function(e) {
         e.preventDefault();
         
+        const originalBranding = AuraStore.getBranding() || {};
+        
         const newBranding = {
-            name: $("#brand-name").value.trim(),
+            name: originalBranding.name || $("#brand-name").value.trim(),
             tagline: $("#brand-tagline").value.trim(),
             email: $("#brand-email").value.trim(),
-            phone: $("#brand-phone").value.trim(),
-            address: $("#brand-address").value.trim()
+            phone: originalBranding.phone || $("#brand-phone").value.trim(),
+            address: originalBranding.address || $("#brand-address").value.trim()
         };
 
         AuraStore.updateBranding(newBranding);

@@ -831,6 +831,8 @@
     };
 
     AuraStore.wipeAllData = function() {
+        const currentBranding = { ...state.branding };
+        
         if (AuraStore.useFirebase && AuraStore.db) {
             const db = AuraStore.db;
             state.staff.forEach(s => getCollectionRef("staff").doc(s.id).delete().catch(e => console.error(e)));
@@ -841,7 +843,6 @@
             Object.keys(state.payroll).forEach(k => getCollectionRef("payroll").doc(k).delete().catch(e => console.error(e)));
             Object.keys(state.finance).forEach(k => getCollectionRef("finance").doc(k).delete().catch(e => console.error(e)));
             Object.keys(state.studentAttendance || {}).forEach(d => getCollectionRef("studentAttendance").doc(d).delete().catch(e => console.error(e)));
-            getCollectionRef("branding").doc("current").set(DEFAULT_BRANDING).catch(e => console.error(e));
             getCollectionRef("logs").doc("current").set({ logsList: [] }).catch(e => console.error(e));
             getCollectionRef("security").doc("passwords").set({ admin: "admin123", clerk: "clerk123", faculty: "faculty123" }).catch(e => console.error(e));
         }
@@ -855,7 +856,7 @@
             inventory: [],
             finance: {},
             studentAttendance: {},
-            branding: { ...DEFAULT_BRANDING },
+            branding: currentBranding,
             logs: [],
             passwords: { admin: "admin123", clerk: "clerk123", faculty: "faculty123" }
         };

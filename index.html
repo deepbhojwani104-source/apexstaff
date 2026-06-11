@@ -52,7 +52,7 @@
                     <label for="password">Password</label>
                     <div class="input-field">
                         <span class="material-symbols-outlined input-icon">lock</span>
-                        <input type="password" id="password" placeholder="Enter password" required value="admin123">
+                        <input type="password" id="password" placeholder="Enter password" required>
                         <span class="material-symbols-outlined toggle-password" id="btn-toggle-password">visibility_off</span>
                     </div>
                 </div>
@@ -1485,8 +1485,8 @@
                             <div class="settings-card-body">
                                 <form id="settings-branding-form" class="grid-form">
                                     <div class="form-group">
-                                        <label for="brand-name">Coaching Center Name</label>
-                                        <input type="text" id="brand-name" placeholder="Apex Coaching Institute" required>
+                                        <label for="brand-name">Coaching Center Name <span style="font-size: 10px; color: var(--text-secondary);">(Managed by Super Admin)</span></label>
+                                        <input type="text" id="brand-name" placeholder="Apex Coaching Institute" required readonly style="background: var(--bg-card); cursor: not-allowed; opacity: 0.85;">
                                     </div>
                                     <div class="form-group">
                                         <label for="brand-tagline">Tagline / Branch</label>
@@ -1497,12 +1497,12 @@
                                         <input type="email" id="brand-email" placeholder="hr@apexcoaching.com">
                                     </div>
                                     <div class="form-group">
-                                        <label for="brand-phone">Contact Phone</label>
-                                        <input type="text" id="brand-phone" placeholder="+91 98765 43210">
+                                        <label for="brand-phone">Contact Phone <span style="font-size: 10px; color: var(--text-secondary);">(Managed by Super Admin)</span></label>
+                                        <input type="text" id="brand-phone" placeholder="+91 98765 43210" required readonly style="background: var(--bg-card); cursor: not-allowed; opacity: 0.85;">
                                     </div>
                                     <div class="form-group col-span-2">
-                                        <label for="brand-address">Address</label>
-                                        <input type="text" id="brand-address" placeholder="Building 4B, Metro Circle road, Sector-12">
+                                        <label for="brand-address">Address <span style="font-size: 10px; color: var(--text-secondary);">(Managed by Super Admin)</span></label>
+                                        <input type="text" id="brand-address" placeholder="Building 4B, Metro Circle road, Sector-12" required readonly style="background: var(--bg-card); cursor: not-allowed; opacity: 0.85;">
                                     </div>
                                     <div class="form-group col-span-2 text-right">
                                         <button type="submit" class="btn btn-primary">
