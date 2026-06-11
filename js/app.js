@@ -1847,11 +1847,25 @@ document.addEventListener("DOMContentLoaded", function() {
         const newPwd = newPwdInput.value;
         const confirmPwd = confirmPwdInput.value;
         
-        const pwdObj = AuraStore.getPasswords();
+        const loggedInRole = AuraStore.getUserRole();
         
-        // 1. Verify current admin password
-        if (currentPwd !== pwdObj.admin) {
-            AuraDOM.showToast("Verification failed: Current admin password is incorrect.", "error");
+        // Guard: ensure the user changes only their own password
+        let isOwn = false;
+        if (loggedInRole === "admin" && role === "admin") isOwn = true;
+        if (loggedInRole === "staff" && role === "clerk") isOwn = true;
+        if (loggedInRole === "faculty" && role === "faculty") isOwn = true;
+        
+        if (!isOwn) {
+            AuraDOM.showToast("Verification failed: You can only change your own password.", "error");
+            return;
+        }
+        
+        const pwdObj = AuraStore.getPasswords();
+        const currentTargetPwd = pwdObj[role];
+        
+        // 1. Verify current password
+        if (currentPwd !== currentTargetPwd) {
+            AuraDOM.showToast("Verification failed: Current password is incorrect.", "error");
             currentPwdInput.value = "";
             currentPwdInput.focus();
             return;
@@ -2207,6 +2221,28 @@ document.addEventListener("DOMContentLoaded", function() {
             // Enforce clerk redirect
             if (currentView === "payroll") {
                 switchView("dashboard");
+            }
+        }
+
+        // Update password change role dropdown to only show the user's own role
+        const selectRole = $("#change-pwd-role");
+        const currentPwdLabel = $("label[for='change-pwd-current']");
+        const currentPwdInput = $("#change-pwd-current");
+        
+        if (selectRole) {
+            selectRole.innerHTML = "";
+            if (role === "admin") {
+                selectRole.innerHTML = `<option value="admin">Super Administrator (admin)</option>`;
+                if (currentPwdLabel) currentPwdLabel.textContent = "Current Admin Password *";
+                if (currentPwdInput) currentPwdInput.placeholder = "Enter current admin password";
+            } else if (role === "staff") {
+                selectRole.innerHTML = `<option value="clerk">Office Clerk (clerk)</option>`;
+                if (currentPwdLabel) currentPwdLabel.textContent = "Current Clerk Password *";
+                if (currentPwdInput) currentPwdInput.placeholder = "Enter current clerk password";
+            } else if (role === "faculty") {
+                selectRole.innerHTML = `<option value="faculty">Faculty Member (faculty)</option>`;
+                if (currentPwdLabel) currentPwdLabel.textContent = "Current Faculty Password *";
+                if (currentPwdInput) currentPwdInput.placeholder = "Enter current faculty password";
             }
         }
     }
