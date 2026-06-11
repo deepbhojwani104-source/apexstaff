@@ -150,6 +150,28 @@ document.addEventListener("DOMContentLoaded", function() {
                         let tenantId = profile.tenant_id || profile.tenantId;
                         const role = profile.role || "staff";
                         
+                        // Access Control Guard: Only Admin and SuperAdmin users are allowed.
+                        if (role !== "admin" && role !== "superadmin") {
+                            AuraDOM.showToast("Access Denied: Only Admin users can access this system.", "error");
+                            await firebase.auth().signOut();
+                            AuraStore.resetTenantUI();
+                            sessionStorage.removeItem("aurastaff_logged_in");
+                            sessionStorage.removeItem("aurastaff_user_role");
+                            AuraStore.currentTenantId = null;
+                            AuraStore.stopFirebaseListeners();
+                            
+                            $("#login-container").classList.remove("hide");
+                            $("#app-container").classList.add("hide");
+                            
+                            const btn = $("#login-form button[type='submit']");
+                            if (btn) {
+                                btn.disabled = false;
+                                btn.innerHTML = `<span>Sign In</span> <span class="material-symbols-outlined">arrow_forward</span>`;
+                            }
+                            if (loaderEl) loaderEl.remove();
+                            return;
+                        }
+                        
                         // Force samyak email to map to samyak tenant
                         if (user.email && user.email.toLowerCase().trim() === "admin@samyak.com") {
                             tenantId = "samyak";
@@ -392,6 +414,26 @@ document.addEventListener("DOMContentLoaded", function() {
             this.textContent = "visibility_off";
         }
     });
+
+    // Settings Passwords Visibility toggles
+    const setupPasswordToggle = (btnId, inputId) => {
+        const btn = $(btnId);
+        const input = $(inputId);
+        if (btn && input) {
+            btn.addEventListener("click", function() {
+                if (input.type === "password") {
+                    input.type = "text";
+                    btn.textContent = "visibility";
+                } else {
+                    input.type = "password";
+                    btn.textContent = "visibility_off";
+                }
+            });
+        }
+    };
+    setupPasswordToggle("#btn-toggle-pwd-current", "#change-pwd-current");
+    setupPasswordToggle("#btn-toggle-pwd-new", "#change-pwd-new");
+    setupPasswordToggle("#btn-toggle-pwd-confirm", "#change-pwd-confirm");
 
     // Change Firebase Config from login screen
     const resetFirebaseLoginBtn = $("#btn-reset-firebase-login");
@@ -1863,13 +1905,14 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     // Password change form submit handler
-    $("#settings-password-form").addEventListener("submit", function(e) {
+    $("#settings-password-form").addEventListener("submit", async function(e) {
         e.preventDefault();
         
         const role = $("#change-pwd-role").value;
         const currentPwdInput = $("#change-pwd-current");
         const newPwdInput = $("#change-pwd-new");
         const confirmPwdInput = $("#change-pwd-confirm");
+        const submitBtn = $("#settings-password-form button[type='submit']");
         
         const currentPwd = currentPwdInput.value;
         const newPwd = newPwdInput.value;
@@ -1877,25 +1920,14 @@ document.addEventListener("DOMContentLoaded", function() {
         
         const loggedInRole = AuraStore.getUserRole();
         
-        // Guard: ensure the user changes only their own password
-        let isOwn = false;
-        if (loggedInRole === "admin" && role === "admin") isOwn = true;
-        if (loggedInRole === "staff" && role === "clerk") isOwn = true;
-        if (loggedInRole === "faculty" && role === "faculty") isOwn = true;
+        // Guard: ensure the user has permission to change this password
+        let isAllowed = false;
+        if (loggedInRole === "admin") isAllowed = true;
+        if (loggedInRole === "staff" && role === "clerk") isAllowed = true;
+        if (loggedInRole === "faculty" && role === "faculty") isAllowed = true;
         
-        if (!isOwn) {
-            AuraDOM.showToast("Verification failed: You can only change your own password.", "error");
-            return;
-        }
-        
-        const pwdObj = AuraStore.getPasswords();
-        const currentTargetPwd = pwdObj[role];
-        
-        // 1. Verify current password
-        if (currentPwd !== currentTargetPwd) {
-            AuraDOM.showToast("Verification failed: Current password is incorrect.", "error");
-            currentPwdInput.value = "";
-            currentPwdInput.focus();
+        if (!isAllowed) {
+            AuraDOM.showToast("Verification failed: You do not have permission to change this password.", "error");
             return;
         }
         
@@ -1916,7 +1948,46 @@ document.addEventListener("DOMContentLoaded", function() {
         
         // 4. Perform update
         try {
-            AuraStore.changePassword(role, newPwd);
+            submitBtn.disabled = true;
+            const originalBtnContent = submitBtn.innerHTML;
+            submitBtn.innerHTML = `<span class="material-symbols-outlined animated-spin" style="font-size:16px;">sync</span><span>Updating...</span>`;
+
+            if (AuraStore.useFirebase && typeof firebase !== "undefined" && firebase.auth) {
+                // Firebase Mode
+                const user = firebase.auth().currentUser;
+                if (!user) {
+                    throw new Error("No authenticated user found.");
+                }
+                
+                // 1. Re-authenticate
+                const credential = firebase.auth.EmailAuthProvider.credential(user.email, currentPwd);
+                try {
+                    await user.reauthenticateWithCredential(credential);
+                } catch (authErr) {
+                    console.error("Re-authentication failed:", authErr);
+                    throw new Error("Verification failed: Current password is incorrect.");
+                }
+                
+                // 2. Update Firebase Auth password
+                await user.updatePassword(newPwd);
+                
+                // 3. Update Firestore /users/{email} password backup
+                const userEmail = user.email.toLowerCase().trim();
+                await AuraStore.db.collection("users").doc(userEmail).update({ password: newPwd });
+                
+                // 4. Update local state and security/passwords collection
+                AuraStore.changePassword(role, newPwd);
+            } else {
+                // Offline Mode
+                const pwdObj = AuraStore.getPasswords();
+                const currentTargetPwd = pwdObj[role];
+                if (currentPwd !== currentTargetPwd) {
+                    throw new Error("Verification failed: Current password is incorrect.");
+                }
+                
+                AuraStore.changePassword(role, newPwd);
+            }
+            
             AuraDOM.showToast(`Password for ${role} updated successfully!`, "success");
             
             // Clear fields
@@ -1924,7 +1995,15 @@ document.addEventListener("DOMContentLoaded", function() {
             newPwdInput.value = "";
             confirmPwdInput.value = "";
         } catch (err) {
+            console.error("Password update error:", err);
             AuraDOM.showToast(err.message, "error");
+            if (err.message.includes("Verification failed")) {
+                currentPwdInput.value = "";
+                currentPwdInput.focus();
+            }
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = `<span>Update Password</span>`;
         }
     });
 
@@ -2177,101 +2256,51 @@ document.addEventListener("DOMContentLoaded", function() {
     function applyRolePrivileges() {
         const role = AuraStore.getUserRole();
         
-        // Hide or show elements depending on user role
-        if (role === "faculty") {
-            // Hide other menu items
-            $$(".menu-item").forEach(item => {
-                const view = item.dataset.view;
-                if (view === "students" || view === "student-attendance") {
-                    item.classList.remove("hide");
-                } else {
-                    item.classList.add("hide");
-                }
-            });
-            
-            // Hide header action buttons
-            const quickAdd = $("#btn-quick-add");
-            const quickAtt = $("#btn-quick-attendance");
-            if (quickAdd) quickAdd.classList.add("hide");
-            if (quickAtt) quickAtt.classList.add("hide");
-            
-            // Update User Pill
-            const avatar = $("#current-user-avatar");
-            const uName = $(".user-name");
-            const uRole = $(".user-role");
-            if (avatar) avatar.textContent = "FC";
-            if (uName) uName.textContent = "Faculty Member";
-            if (uRole) uRole.textContent = "Faculty / Teacher";
-            
-            // Redirect to student attendance view by default if not on valid view
-            if (currentView !== "students" && currentView !== "student-attendance") {
-                switchView("student-attendance");
-            }
-        } else {
-            // Restore visibility for admin/staff
-            $$(".menu-item").forEach(item => {
-                const view = item.dataset.view;
-                if ((view === "payroll" || view === "finance") && role !== "admin") {
-                    item.classList.add("hide");
-                } else {
-                    item.classList.remove("hide");
-                }
-            });
-            
-            const quickAdd = $("#btn-quick-add");
-            const quickAtt = $("#btn-quick-attendance");
-            if (quickAdd) quickAdd.classList.remove("hide");
-            if (quickAtt) quickAtt.classList.remove("hide");
-            
-            const avatar = $("#current-user-avatar");
-            const uName = $(".user-name");
-            const uRole = $(".user-role");
-            if (role === "admin") {
-                const branding = AuraStore.getBranding() || {};
-                const ownerName = branding.owner || "Administrator";
-                const instName = branding.name || "Institute Admin";
-                
-                if (avatar) {
-                    avatar.textContent = ownerName.split(" ")
-                        .map(n => n.charAt(0))
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase() || "AD";
-                }
-                if (uName) uName.textContent = ownerName;
-                if (uRole) uRole.textContent = instName;
-            } else {
-                if (avatar) avatar.textContent = "ST";
-                if (uName) uName.textContent = "Staff Member";
-                if (uRole) uRole.textContent = "Office Clerk";
-            }
-
-            // Enforce clerk redirect
-            if (currentView === "payroll") {
-                switchView("dashboard");
-            }
+        // Only admin is supported now. Ensure all menu items are visible.
+        $$(".menu-item").forEach(item => {
+            item.classList.remove("hide");
+        });
+        
+        const quickAdd = $("#btn-quick-add");
+        const quickAtt = $("#btn-quick-attendance");
+        if (quickAdd) quickAdd.classList.remove("hide");
+        if (quickAtt) quickAtt.classList.remove("hide");
+        
+        const avatar = $("#current-user-avatar");
+        const uName = $(".user-name");
+        const uRole = $(".user-role");
+        
+        const branding = AuraStore.getBranding() || {};
+        const ownerName = branding.owner || "Administrator";
+        const instName = branding.name || "Institute Admin";
+        
+        if (avatar) {
+            avatar.textContent = ownerName.split(" ")
+                .map(n => n.charAt(0))
+                .join("")
+                .slice(0, 2)
+                .toUpperCase() || "AD";
         }
+        if (uName) uName.textContent = ownerName;
+        if (uRole) uRole.textContent = instName;
 
-        // Update password change role dropdown to only show the user's own role
+        // Update password change role dropdown and input field requirements based on role
         const selectRole = $("#change-pwd-role");
         const currentPwdLabel = $("label[for='change-pwd-current']");
         const currentPwdInput = $("#change-pwd-current");
+        const currentPwdGroup = currentPwdInput ? currentPwdInput.closest(".form-group") : null;
         
         if (selectRole) {
-            selectRole.innerHTML = "";
-            if (role === "admin") {
-                selectRole.innerHTML = `<option value="admin">Coaching Administrator (admin)</option>`;
-                if (currentPwdLabel) currentPwdLabel.textContent = "Current Admin Password *";
-                if (currentPwdInput) currentPwdInput.placeholder = "Enter current admin password";
-            } else if (role === "staff") {
-                selectRole.innerHTML = `<option value="clerk">Office Clerk (clerk)</option>`;
-                if (currentPwdLabel) currentPwdLabel.textContent = "Current Clerk Password *";
-                if (currentPwdInput) currentPwdInput.placeholder = "Enter current clerk password";
-            } else if (role === "faculty") {
-                selectRole.innerHTML = `<option value="faculty">Faculty Member (faculty)</option>`;
-                if (currentPwdLabel) currentPwdLabel.textContent = "Current Faculty Password *";
-                if (currentPwdInput) currentPwdInput.placeholder = "Enter current faculty password";
+            selectRole.innerHTML = `<option value="admin">Coaching Administrator (admin)</option>`;
+            if (currentPwdLabel) currentPwdLabel.textContent = "Current Admin Password *";
+            if (currentPwdInput) {
+                currentPwdInput.placeholder = "Enter current admin password";
+                currentPwdInput.required = true;
             }
+            if (currentPwdGroup) currentPwdGroup.style.display = "block";
+            
+            const selectRoleGroup = selectRole.closest(".form-group");
+            if (selectRoleGroup) selectRoleGroup.style.display = "none";
         }
     }
 

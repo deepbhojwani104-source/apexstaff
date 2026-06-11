@@ -80,9 +80,7 @@
         branding: { ...DEFAULT_BRANDING },
         logs: [],
         passwords: {
-            admin: "admin123",
-            clerk: "clerk123",
-            faculty: "faculty123"
+            admin: "admin123"
         }
     };
 
@@ -1336,24 +1334,12 @@
 
     AuraStore.login = function(username, password) {
         const pwdObj = state.passwords || {
-            admin: "admin123",
-            clerk: "clerk123",
-            faculty: "faculty123"
+            admin: "admin123"
         };
         if (username === "admin" && password === pwdObj.admin) {
             sessionStorage.setItem(SESSION_KEY, "true");
             sessionStorage.setItem(ROLE_KEY, "admin");
             AuraStore.logActivity("Administrator session authenticated.", "success");
-            return true;
-        } else if (username === "clerk" && password === pwdObj.clerk) {
-            sessionStorage.setItem(SESSION_KEY, "true");
-            sessionStorage.setItem(ROLE_KEY, "staff");
-            AuraStore.logActivity("Staff session authenticated.", "success");
-            return true;
-        } else if (username === "faculty" && password === pwdObj.faculty) {
-            sessionStorage.setItem(SESSION_KEY, "true");
-            sessionStorage.setItem(ROLE_KEY, "faculty");
-            AuraStore.logActivity("Faculty session authenticated.", "success");
             return true;
         }
         AuraStore.logActivity(`Failed login attempt for user: ${username}`, "warning");
@@ -1375,12 +1361,12 @@
     };
 
     AuraStore.getPasswords = function() {
-        return state.passwords || { admin: "admin123", clerk: "clerk123", faculty: "faculty123" };
+        return state.passwords || { admin: "admin123" };
     };
 
     AuraStore.changePassword = function(role, newPassword) {
         if (!state.passwords) {
-            state.passwords = { admin: "admin123", clerk: "clerk123", faculty: "faculty123" };
+            state.passwords = { admin: "admin123" };
         }
         state.passwords[role] = newPassword;
         AuraStore.saveState();

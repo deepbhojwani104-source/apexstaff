@@ -1443,25 +1443,35 @@
                             </div>
                             <div class="settings-card-body">
                                 <form id="settings-password-form" style="display: flex; flex-direction: column; gap: 12px;">
-                                    <div class="form-group">
+                                    <div class="form-group" style="display: none;">
                                         <label for="change-pwd-role">Select User Account</label>
                                         <select id="change-pwd-role" style="width: 100%; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); outline: none;">
                                             <option value="admin">Coaching Administrator (admin)</option>
-                                            <option value="clerk">Office Clerk (clerk)</option>
-                                            <option value="faculty">Faculty Member (faculty)</option>
                                         </select>
                                     </div>
                                     <div class="form-group">
                                         <label for="change-pwd-current">Current Admin Password *</label>
-                                        <input type="password" id="change-pwd-current" placeholder="Enter current admin password" required style="width: 100%; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); outline: none;">
+                                        <div class="input-field">
+                                            <span class="material-symbols-outlined input-icon">lock</span>
+                                            <input type="password" id="change-pwd-current" placeholder="Enter current admin password" required>
+                                            <span class="material-symbols-outlined toggle-password" id="btn-toggle-pwd-current">visibility_off</span>
+                                        </div>
                                     </div>
                                     <div class="form-group">
                                         <label for="change-pwd-new">New Password *</label>
-                                        <input type="password" id="change-pwd-new" placeholder="Enter new password" required style="width: 100%; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); outline: none;">
+                                        <div class="input-field">
+                                            <span class="material-symbols-outlined input-icon">lock</span>
+                                            <input type="password" id="change-pwd-new" placeholder="Enter new password" required>
+                                            <span class="material-symbols-outlined toggle-password" id="btn-toggle-pwd-new">visibility_off</span>
+                                        </div>
                                     </div>
                                     <div class="form-group">
                                         <label for="change-pwd-confirm">Confirm New Password *</label>
-                                        <input type="password" id="change-pwd-confirm" placeholder="Confirm new password" required style="width: 100%; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); outline: none;">
+                                        <div class="input-field">
+                                            <span class="material-symbols-outlined input-icon">lock</span>
+                                            <input type="password" id="change-pwd-confirm" placeholder="Confirm new password" required>
+                                            <span class="material-symbols-outlined toggle-password" id="btn-toggle-pwd-confirm">visibility_off</span>
+                                        </div>
                                     </div>
                                     <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
                                         <button type="submit" class="btn btn-primary" style="display: flex; align-items: center; gap: 6px;">
