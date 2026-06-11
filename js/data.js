@@ -863,6 +863,24 @@
         AuraStore.logActivity("All databases reset and storage purged.", "warning");
     };
 
+    AuraStore.clearLocalState = function() {
+        state = {
+            staff: [],
+            attendance: {},
+            payroll: {},
+            students: [],
+            courses: [],
+            inventory: [],
+            finance: {},
+            studentAttendance: {},
+            branding: { ...DEFAULT_BRANDING },
+            logs: [],
+            passwords: { admin: "admin123", clerk: "clerk123", faculty: "faculty123" }
+        };
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem("aurastaff_firebase_migrated");
+    };
+
     // 8. Demo Prepopulation Database Seeding
     AuraStore.seedDemoData = function() {
         // Setup realistic Staff list
@@ -1346,6 +1364,8 @@
         sessionStorage.removeItem(ROLE_KEY);
         AuraStore.currentTenantId = null;
         AuraStore.stopFirebaseListeners();
+        AuraStore.clearLocalState();
+        localStorage.removeItem("aurastaff_last_tenant_id");
         AuraStore.logActivity("Session terminated.", "info");
 
         if (AuraStore.useFirebase && typeof firebase !== "undefined" && firebase.auth) {
@@ -1924,6 +1944,48 @@
             return { success: true, message: `Tenant '${tenantId}' deleted successfully.` };
         } catch (err) {
             console.error("Error deleting tenant:", err);
+            return { success: false, message: err.message };
+        }
+    };
+
+    AuraStore.cleanLegacyData = async function() {
+        if (!AuraStore.db) return { success: false, message: "Firebase is not connected." };
+        const db = AuraStore.db;
+        const batch = db.batch();
+        let deletedCount = 0;
+        
+        const rootCollections = ["staff", "students", "attendance", "payroll", "finance", "inventory", "studentAttendance", "branding"];
+        const adminSubcollections = ["staff", "students", "attendance", "payroll", "finance", "inventory", "studentAttendance", "config"];
+        
+        try {
+            // 1. Delete root collections
+            for (const colName of rootCollections) {
+                const snapshot = await db.collection(colName).get();
+                snapshot.forEach(doc => {
+                    batch.delete(doc.ref);
+                    deletedCount++;
+                });
+            }
+            
+            // 2. Delete tenants/admin subcollections
+            for (const subName of adminSubcollections) {
+                const snapshot = await db.collection("tenants").doc("admin").collection(subName).get();
+                snapshot.forEach(doc => {
+                    batch.delete(doc.ref);
+                    deletedCount++;
+                });
+            }
+            
+            // 3. Delete tenants/admin doc itself
+            batch.delete(db.collection("tenants").doc("admin"));
+            
+            if (deletedCount > 0) {
+                await batch.commit();
+            }
+            
+            return { success: true, message: `Successfully deleted ${deletedCount} legacy records and the 'admin' tenant from Firestore.` };
+        } catch (err) {
+            console.error("Error cleaning legacy data:", err);
             return { success: false, message: err.message };
         }
     };

@@ -146,6 +146,14 @@ document.addEventListener("DOMContentLoaded", function() {
                             profile.tenantId = "samyak";
                         }
                         
+                        // Prevent data carryover between different tenants
+                        const lastTenantId = localStorage.getItem("aurastaff_last_tenant_id");
+                        if (lastTenantId && lastTenantId !== tenantId) {
+                            console.log(`Switching tenants from ${lastTenantId} to ${tenantId}. Clearing local cache.`);
+                            AuraStore.clearLocalState();
+                        }
+                        localStorage.setItem("aurastaff_last_tenant_id", tenantId);
+                        
                         AuraStore.currentTenantId = tenantId;
                         sessionStorage.setItem("aurastaff_logged_in", "true");
                         sessionStorage.setItem("aurastaff_user_role", role);
@@ -2964,6 +2972,33 @@ document.addEventListener("DOMContentLoaded", function() {
                 setTimeout(() => {
                     window.location.reload();
                 }, 500);
+            });
+        }
+
+        // 8.5 Bind Clean Legacy Button
+        const cleanLegacyBtn = $("#btn-sa-clean-legacy");
+        if (cleanLegacyBtn) {
+            cleanLegacyBtn.addEventListener("click", async function() {
+                if (confirm("WARNING: This will permanently delete all legacy data stored in Firebase root collections (staff, students, attendance, payroll, PL ledger) and the 'admin' tenant configuration and its subcollections. This action is irreversible and should only be performed once to clean up early databases. Proceed?")) {
+                    cleanLegacyBtn.disabled = true;
+                    const originalText = cleanLegacyBtn.innerHTML;
+                    cleanLegacyBtn.innerHTML = `<span class="material-symbols-outlined animated-spin" style="font-size: 16px; margin-right: 4px;">sync</span><span>Cleaning...</span>`;
+                    
+                    try {
+                        const res = await AuraStore.cleanLegacyData();
+                        if (res.success) {
+                            AuraDOM.showToast(res.message, "success");
+                            refreshSuperAdminInstitutes();
+                        } else {
+                            AuraDOM.showToast(res.message, "error");
+                        }
+                    } catch (err) {
+                        AuraDOM.showToast(err.message || err, "error");
+                    } finally {
+                        cleanLegacyBtn.disabled = false;
+                        cleanLegacyBtn.innerHTML = originalText;
+                    }
+                }
             });
         }
         
