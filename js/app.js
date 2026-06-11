@@ -40,6 +40,12 @@ document.addEventListener("DOMContentLoaded", function() {
     AuraStore.loadState();
     startInactivityTracker();
 
+    // Pre-populate username if saved from previous login
+    const lastLogin = localStorage.getItem("aurastaff_last_login_username");
+    if (lastLogin) {
+        $("#username").value = lastLogin;
+    }
+
     if (AuraStore.useFirebase) {
         initFirebaseObserver();
     } else {
@@ -136,6 +142,11 @@ document.addEventListener("DOMContentLoaded", function() {
                     // Fetch user profile from /users/{email} or /users/{uid}
                     const profile = await AuraStore.fetchUserProfile(user);
                     if (profile) {
+                        // Save last login email/username
+                        if (user.email) {
+                            localStorage.setItem("aurastaff_last_login_username", user.email);
+                        }
+                        
                         let tenantId = profile.tenant_id || profile.tenantId;
                         const role = profile.role || "staff";
                         
@@ -256,6 +267,12 @@ document.addEventListener("DOMContentLoaded", function() {
                     clearTimeout(inactivityTimeout);
                     inactivityTimeout = null;
                 }
+                
+                // Pre-populate username if saved from previous login
+                const lastLogin = localStorage.getItem("aurastaff_last_login_username");
+                if (lastLogin) {
+                    $("#username").value = lastLogin;
+                }
             }
 
             // Remove startup loader once state is resolved
@@ -307,6 +324,12 @@ document.addEventListener("DOMContentLoaded", function() {
                 clearTimeout(inactivityTimeout);
                 inactivityTimeout = null;
             }
+            
+            // Pre-populate username if saved from previous login
+            const lastLogin = localStorage.getItem("aurastaff_last_login_username");
+            if (lastLogin) {
+                $("#username").value = lastLogin;
+            }
         }
     }
 
@@ -342,6 +365,9 @@ document.addEventListener("DOMContentLoaded", function() {
             // Offline Mode: Custom passwords
             const success = AuraStore.login(usernameOrEmail, password);
             if (success) {
+                // Save last login email/username
+                localStorage.setItem("aurastaff_last_login_username", usernameOrEmail);
+                
                 checkAuth();
                 const role = AuraStore.getUserRole();
                 const roleName = role === "admin" ? "Administrator" : role === "faculty" ? "Faculty" : "Staff Clerk";
